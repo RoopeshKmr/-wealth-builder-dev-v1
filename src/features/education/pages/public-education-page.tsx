@@ -5,8 +5,9 @@ import {
   VideoHero,
   GalleryRow,
   FaqSection,
-} from '@/shared/components/education';
-import { ActionButtons } from '@/shared/components/insight-center';
+} from '@/features/education/components';
+import { ActionButtons } from '@/features/insight-center/components';
+import { Text } from '@/shared/components';
 
 const FALLBACK_EDUCATION_INTRO = 'https://firebasestorage.googleapis.com/v0/b/wealthbuilders-crm-9c323.firebasestorage.app/o/AI%20videos%2FInsight%20center%2FInsight%20center%20Education.mp4?alt=media&token=23f05108-a432-405d-bcba-6a3e9382e37c';
 
@@ -57,7 +58,7 @@ export default function PublicEducationPage() {
     return (
       <PageWrapper>
         <div style={{ textAlign: 'center', padding: '2rem' }}>
-          <p>Loading videos...</p>
+          <Text variant="body">Loading videos...</Text>
         </div>
       </PageWrapper>
     );

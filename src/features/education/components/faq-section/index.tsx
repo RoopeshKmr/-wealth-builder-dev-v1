@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Button } from '@/shared/components';
 import { VideoModal } from '../video-modal';
 import './faq-section.css';
 
@@ -29,9 +30,9 @@ function FaqItemComponent({ q, videoUrl, renderMode = 'modal' }: FaqItem & { ren
       <details className="biz-faq-item">
         <summary className="biz-faq-q">{q}</summary>
         <div className="biz-faq-a">
-          <button className="biz-btn biz-btn-white" onClick={openVideo}>
+          <Button className="biz-btn biz-btn-white" onClick={openVideo}>
             Watch answer
-          </button>
+          </Button>
         </div>
       </details>
       <VideoModal

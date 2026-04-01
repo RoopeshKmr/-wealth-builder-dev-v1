@@ -6,8 +6,9 @@ import {
   EasterEggLogo,
   EasterEggModal,
   PageWrapper,
-} from '@/shared/components/insight-center';
+} from '@/features/insight-center/components';
 import wbLogo from '@/assets/images/wealthbuilderslogo.png';
+import { Heading, Text } from '@/shared/components';
 
 const FALLBACK_INTRO = 'https://firebasestorage.googleapis.com/v0/b/wealthbuilders-crm-9c323.firebasestorage.app/o/Insight%20center%2Finsight_center_intro_v2.mp4?alt=media&token=b6e04e29-69ca-4dc6-8754-75e5be9e1b5d';
 const FALLBACK_EASTER_EGG = 'https://firebasestorage.googleapis.com/v0/b/wealthbuilders-crm-9c323.firebasestorage.app/o/Insight%20center%2FLeadership%20Bonus.mp4?alt=media&token=fe0c09c7-cf66-4d70-b93b-76b7c68d26df';
@@ -51,7 +52,7 @@ export default function PublicInsightCenter() {
     return (
       <PageWrapper>
         <div style={{ textAlign: 'center', padding: '2rem' }}>
-          <p>Loading videos...</p>
+          <Text variant="body">Loading videos...</Text>
         </div>
       </PageWrapper>
     );
@@ -61,10 +62,10 @@ export default function PublicInsightCenter() {
     <PageWrapper>
       <VideoIntro videoUrl={introVideoUrl} />
 
-      <h3 className="ic-question">Welcome to Wealth Builders! 🌟</h3>
-      <p className="ic-subtitle">
+      <Heading as="h3" variant="h5" className="ic-question">Welcome to Wealth Builders! 🌟</Heading>
+      <Text variant="body" className="ic-subtitle">
         You've been invited to discover how we're helping people achieve financial independence
-      </p>
+      </Text>
 
       <ActionButtons buttons={NAVIGATION_BUTTONS} />
 

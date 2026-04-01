@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { Prospect } from '../../services/prospect-service';
+import { Button, Input, Modal, Select } from '@/shared/components';
+import type { Prospect } from '../services/prospect-service';
 
 interface CallLogModalProps {
   prospect: Prospect | null;
@@ -42,22 +43,14 @@ export function CallLogModal({
   const callOutcomes = ['Left Message', 'Connected', 'No Answer', 'Wrong Number', 'Follow-up Scheduled'];
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-[760px] rounded-2xl border border-white/15 bg-[#1e2431] p-5 text-white shadow-2xl">
-        <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-4">
-          <h3 className="text-lg font-semibold">Call Logs: {prospect.full_name || prospect.email}</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-9 w-9 rounded-lg border border-white/20 bg-white/5 text-xl leading-none hover:bg-white/10"
-            aria-label="Close"
-          >
-            x
-          </button>
-        </div>
-
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <select
+    <Modal
+      open={Boolean(prospect)}
+      onClose={onClose}
+      title={`Call Logs: ${prospect.full_name || prospect.email}`}
+      contentClassName="max-w-[760px] p-5"
+    >
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+          <Select
             className="h-10 min-w-[160px] rounded-lg border border-white/20 bg-white/5 px-3 text-sm"
             value={outcome}
             onChange={(e) => setOutcome(e.target.value)}
@@ -67,78 +60,78 @@ export function CallLogModal({
                 {item}
               </option>
             ))}
-          </select>
-          <input
+          </Select>
+          <Input
             type="text"
             className="h-10 flex-1 rounded-lg border border-white/20 bg-white/5 px-3 text-sm"
             placeholder="Note"
             value={note}
             onChange={(e) => setNote(e.target.value)}
           />
-          <button
+          <Button
             type="button"
             onClick={() => onSave(outcome, note)}
             disabled={saving}
-            className="h-10 rounded-lg border border-[#b59a0a] bg-[#8f7a08] px-4 text-sm font-semibold text-[#ffea6b] hover:bg-[#a0880a] disabled:opacity-60"
+            className="h-10"
           >
             {saving ? 'SAVING...' : 'SAVE'}
-          </button>
-        </div>
+          </Button>
+      </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
             {!hideRestrictedActions && (
-              <button
+              <Button
                 type="button"
                 onClick={() => onInvite(prospect)}
-                className="rounded-lg border border-[#b59a0a] bg-[#3b3524] px-3 py-2 text-xs font-semibold tracking-wide text-[#ffdd45] hover:bg-[#4a422b]"
+                variant="outline"
+                className="rounded-lg border-[#b59a0a] bg-[#3b3524] px-3 py-2 text-xs font-semibold tracking-wide text-[#ffdd45] hover:bg-[#4a422b]"
               >
                 INVITE
-              </button>
+              </Button>
             )}
-            <button
+            <Button
               type="button"
               onClick={() => onRequestTrainer(prospect)}
-              className="rounded-lg border border-[#b59a0a] bg-[#3b3524] px-3 py-2 text-xs font-semibold tracking-wide text-[#ffdd45] hover:bg-[#4a422b]"
+              variant="outline"
+              className="rounded-lg border-[#b59a0a] bg-[#3b3524] px-3 py-2 text-xs font-semibold tracking-wide text-[#ffdd45] hover:bg-[#4a422b]"
             >
               REQUEST TRAINER
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={() => onAddAppointment(prospect)}
-              className="rounded-lg border border-[#b59a0a] bg-[#3b3524] px-3 py-2 text-xs font-semibold tracking-wide text-[#ffdd45] hover:bg-[#4a422b]"
+              variant="outline"
+              className="rounded-lg border-[#b59a0a] bg-[#3b3524] px-3 py-2 text-xs font-semibold tracking-wide text-[#ffdd45] hover:bg-[#4a422b]"
             >
               ADD APPOINTMENT
-            </button>
+            </Button>
             {!hideRestrictedActions && (
-              <button
+              <Button
                 type="button"
                 onClick={() => onAddProduction(prospect)}
-                className="rounded-lg border border-[#b59a0a] bg-[#3b3524] px-3 py-2 text-xs font-semibold tracking-wide text-[#ffdd45] hover:bg-[#4a422b]"
+                variant="outline"
+                className="rounded-lg border-[#b59a0a] bg-[#3b3524] px-3 py-2 text-xs font-semibold tracking-wide text-[#ffdd45] hover:bg-[#4a422b]"
               >
                 ADD PRODUCTION
-              </button>
+              </Button>
             )}
             {!hideRestrictedActions && !hideAddAgencyCode && (
-              <button
+              <Button
                 type="button"
                 onClick={() => onAddAgencyCode(prospect)}
-                className="rounded-lg border border-[#b59a0a] bg-[#3b3524] px-3 py-2 text-xs font-semibold tracking-wide text-[#ffdd45] hover:bg-[#4a422b]"
+                variant="outline"
+                className="rounded-lg border-[#b59a0a] bg-[#3b3524] px-3 py-2 text-xs font-semibold tracking-wide text-[#ffdd45] hover:bg-[#4a422b]"
               >
                 ADD AGENCY CODE
-              </button>
+              </Button>
             )}
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-white/30 bg-white/5 px-4 py-2 text-sm font-semibold hover:bg-white/10"
-          >
-            CLOSE
-          </button>
         </div>
+
+        <Button type="button" variant="outline" onClick={onClose}>
+          CLOSE
+        </Button>
       </div>
-    </div>
+    </Modal>
   );
 }

@@ -1,4 +1,4 @@
-import type { Prospect } from '../services/prospect-service';
+import type { Prospect } from './services/prospect-service';
 
 export function getAgeFromBirthday(birthday?: string | null): string {
   if (!birthday) return '-';

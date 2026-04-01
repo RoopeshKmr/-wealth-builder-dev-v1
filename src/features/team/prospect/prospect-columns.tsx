@@ -1,5 +1,5 @@
 import type { TrackerTableColumn } from '@/shared/components';
-import type { Prospect } from '../services/prospect-service';
+import type { Prospect } from './services/prospect-service';
 import { buildProfileSummary } from './prospect-utils';
 
 export function buildProspectColumns(

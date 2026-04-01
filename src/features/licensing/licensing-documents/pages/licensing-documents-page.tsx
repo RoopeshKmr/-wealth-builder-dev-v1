@@ -1,4 +1,5 @@
 import './licensing-documents-page.css';
+import { Heading, Text } from '@/shared/components';
 
 /**
  * LicensingDocuments - Glass Card Design
@@ -30,10 +31,10 @@ export default function LicensingDocumentsPage() {
   return (
     <div className="lic-wrap lic-docs-page">
       <div className="lic-header">
-        <h2 className="lic-docs-title">Documents</h2>
-        <div className="lic-subtitle">
+        <Heading as="h2" variant="h4" className="lic-docs-title">Documents</Heading>
+        <Text variant="body" className="lic-subtitle">
           Quick access to your licensing paperwork
-        </div>
+        </Text>
       </div>
 
       <div className="docs-grid-centered">

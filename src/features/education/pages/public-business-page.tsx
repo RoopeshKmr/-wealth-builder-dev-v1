@@ -5,8 +5,9 @@ import {
   VideoHero,
   GalleryRow,
   FaqSection,
-} from '@/shared/components/education';
-import { ActionButtons } from '@/shared/components/insight-center';
+} from '@/features/education/components';
+import { ActionButtons } from '@/features/insight-center/components';
+import { Text } from '@/shared/components';
 
 const FALLBACK_BUSINESS_INTRO = 'https://firebasestorage.googleapis.com/v0/b/wealthbuilders-crm-9c323.firebasestorage.app/o/AI%20videos%2FInsight%20center%2FInsight%20center%20Business.mp4?alt=media&token=abdaae92-089b-43b4-81ba-ef55adc11fae';
 
@@ -57,7 +58,7 @@ export default function PublicBusinessPage() {
     return (
       <PageWrapper>
         <div style={{ textAlign: 'center', padding: '2rem' }}>
-          <p>Loading videos...</p>
+          <Text variant="body">Loading videos...</Text>
         </div>
       </PageWrapper>
     );

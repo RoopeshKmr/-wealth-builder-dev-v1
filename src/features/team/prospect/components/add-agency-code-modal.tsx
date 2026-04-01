@@ -1,8 +1,20 @@
 import { useEffect, useState } from 'react';
 import { Plan } from '@/core/types';
 import { LEVEL_OPTIONS, LevelCode } from '@/core/constants/levels';
-import { UserAutocompleteDropdown } from '@/shared/components';
-import type { Prospect } from '../../services/prospect-service';
+import {
+  Button,
+  DatePicker,
+  Form,
+  FormActions,
+  FormRow,
+  FormRowGroup,
+  Input,
+  Label,
+  Modal,
+  Select,
+  UserAutocompleteDropdown,
+} from '@/shared/components';
+import type { Prospect } from '../services/prospect-service';
 import { defaultAddAgentForm, type AddAgentFormData } from '../types';
 
 interface AddAgencyCodeModalProps {
@@ -56,86 +68,79 @@ export function AddAgencyCodeModal({
   ];
 
   return (
-    <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-[860px] rounded-2xl border border-white/15 bg-[#1e2431] p-6 text-white shadow-2xl">
-        <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-4">
-          <h3 className="text-xl font-semibold">Add Agent</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-9 w-9 rounded-lg border border-white/20 bg-white/5 text-xl leading-none hover:bg-white/10"
-            aria-label="Close"
-          >
-            x
-          </button>
-        </div>
+    <Modal open={Boolean(prospect)} onClose={onClose} title="Add Agent">
+      <Form
+        className="grid gap-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void handleSubmit();
+        }}
+      >
+          <FormRowGroup>
+            <FormRow>
+              <Label variant="form">AMA Date*</Label>
+              <DatePicker value={form.amaDate} onChange={(value) => updateField('amaDate', value)} />
+            </FormRow>
+            <FormRow>
+              <Label variant="form">Agency Code*</Label>
+              <Input variant="surface" value={form.agencyCode} onChange={(e) => updateField('agencyCode', e.target.value)} placeholder="Enter agency code" />
+            </FormRow>
+          </FormRowGroup>
 
-        <div className="grid gap-4">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm font-semibold">AMA Date*</label>
-              <input className="h-11 w-full rounded-lg border border-white/20 bg-white/5 px-3" type="date" value={form.amaDate} onChange={(e) => updateField('amaDate', e.target.value)} />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-semibold">Agency Code*</label>
-              <input className="h-11 w-full rounded-lg border border-white/20 bg-white/5 px-3" value={form.agencyCode} onChange={(e) => updateField('agencyCode', e.target.value)} placeholder="Enter agency code" />
-            </div>
-          </div>
+          <FormRowGroup>
+            <FormRow>
+              <Label variant="form">First Name*</Label>
+              <Input variant="surface" value={form.firstName} onChange={(e) => updateField('firstName', e.target.value)} />
+            </FormRow>
+            <FormRow>
+              <Label variant="form">Last Name*</Label>
+              <Input variant="surface" value={form.lastName} onChange={(e) => updateField('lastName', e.target.value)} />
+            </FormRow>
+          </FormRowGroup>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm font-semibold">First Name*</label>
-              <input className="h-11 w-full rounded-lg border border-white/20 bg-white/5 px-3" value={form.firstName} onChange={(e) => updateField('firstName', e.target.value)} />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-semibold">Last Name*</label>
-              <input className="h-11 w-full rounded-lg border border-white/20 bg-white/5 px-3" value={form.lastName} onChange={(e) => updateField('lastName', e.target.value)} />
-            </div>
-          </div>
+          <FormRowGroup>
+            <FormRow>
+              <Label variant="form">Phone*</Label>
+              <Input variant="surface" value={form.phone} onChange={(e) => updateField('phone', e.target.value)} />
+            </FormRow>
+            <FormRow>
+              <Label variant="form">E-mail*</Label>
+              <Input variant="surface" value={form.email} onChange={(e) => updateField('email', e.target.value)} />
+            </FormRow>
+          </FormRowGroup>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm font-semibold">Phone*</label>
-              <input className="h-11 w-full rounded-lg border border-white/20 bg-white/5 px-3" value={form.phone} onChange={(e) => updateField('phone', e.target.value)} />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-semibold">E-mail*</label>
-              <input className="h-11 w-full rounded-lg border border-white/20 bg-white/5 px-3" value={form.email} onChange={(e) => updateField('email', e.target.value)} />
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-semibold">Poloshirt Size</label>
-            <select className="h-11 w-full rounded-lg border border-white/20 bg-white/5 px-3" value={form.poloSize} onChange={(e) => updateField('poloSize', e.target.value)}>
+          <FormRow>
+            <Label variant="form">Poloshirt Size</Label>
+            <Select value={form.poloSize} onChange={(e) => updateField('poloSize', e.target.value)}>
               {poloSizes.map((size) => (
                 <option key={size || 'blank'} value={size}>{size || 'Select Size'}</option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </FormRow>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm font-semibold">Spouse Full Name</label>
-              <input className="h-11 w-full rounded-lg border border-white/20 bg-white/5 px-3" value={form.spouseName} onChange={(e) => updateField('spouseName', e.target.value)} placeholder="Spouse name" />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-semibold">Spouse Phone</label>
-              <input className="h-11 w-full rounded-lg border border-white/20 bg-white/5 px-3" value={form.spousePhone} onChange={(e) => updateField('spousePhone', e.target.value)} placeholder="(555) 555-5555" />
-            </div>
-          </div>
+          <FormRowGroup>
+            <FormRow>
+              <Label variant="form">Spouse Full Name</Label>
+              <Input variant="surface" value={form.spouseName} onChange={(e) => updateField('spouseName', e.target.value)} placeholder="Spouse name" />
+            </FormRow>
+            <FormRow>
+              <Label variant="form">Spouse Phone</Label>
+              <Input variant="surface" value={form.spousePhone} onChange={(e) => updateField('spousePhone', e.target.value)} placeholder="(555) 555-5555" />
+            </FormRow>
+          </FormRowGroup>
 
-          <div>
-            <label className="mb-1 block text-sm font-semibold">Spouse Poloshirt Size</label>
-            <select className="h-11 w-full rounded-lg border border-white/20 bg-white/5 px-3" value={form.spousePoloSize} onChange={(e) => updateField('spousePoloSize', e.target.value)}>
+          <FormRow>
+            <Label variant="form">Spouse Poloshirt Size</Label>
+            <Select value={form.spousePoloSize} onChange={(e) => updateField('spousePoloSize', e.target.value)}>
               {poloSizes.map((size) => (
                 <option key={`sp-${size || 'blank'}`} value={size}>{size || 'Select Size'}</option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </FormRow>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm font-semibold">Recruiter*</label>
+          <FormRowGroup>
+            <FormRow>
+              <Label variant="form">Recruiter*</Label>
               <UserAutocompleteDropdown
                 selectedId={form.recruiterId}
                 selectedLabel={form.recruiter}
@@ -147,9 +152,9 @@ export function AddAgencyCodeModal({
                   updateField('recruiter', option.label);
                 }}
               />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-semibold">Leader/Trainer*</label>
+            </FormRow>
+            <FormRow>
+              <Label variant="form">Leader/Trainer*</Label>
               <UserAutocompleteDropdown
                 selectedId={form.leaderId}
                 selectedLabel={form.leader}
@@ -162,36 +167,35 @@ export function AddAgencyCodeModal({
                   updateField('leader', option.label);
                 }}
               />
-            </div>
-          </div>
+            </FormRow>
+          </FormRowGroup>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm font-semibold">Level*</label>
-              <select className="h-11 w-full rounded-lg border border-white/20 bg-white/5 px-3" value={form.level} onChange={(e) => updateField('level', e.target.value as LevelCode)}>
+          <FormRowGroup>
+            <FormRow>
+              <Label variant="form">Level*</Label>
+              <Select value={form.level} onChange={(e) => updateField('level', e.target.value as LevelCode)}>
                 {LEVEL_OPTIONS.map((level) => (
                   <option key={level.value} value={level.value}>
                     {level.label}
                   </option>
                 ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-semibold">Plan*</label>
-              <select className="h-11 w-full rounded-lg border border-white/20 bg-white/5 px-3" value={form.plan} onChange={(e) => updateField('plan', e.target.value)}>
+              </Select>
+            </FormRow>
+            <FormRow>
+              <Label variant="form">Plan*</Label>
+              <Select value={form.plan} onChange={(e) => updateField('plan', e.target.value)}>
                 {Object.values(Plan).map((plan) => (
                   <option key={plan} value={plan}>{plan}</option>
                 ))}
-              </select>
-            </div>
-          </div>
+              </Select>
+            </FormRow>
+          </FormRowGroup>
 
-          <div className="mt-2 flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="rounded-lg border border-white/30 bg-white/5 px-4 py-2 text-sm font-semibold hover:bg-white/10">CANCEL</button>
-            <button type="button" onClick={handleSubmit} disabled={saving} className="rounded-lg border border-[#b59a0a] bg-[#8f7a08] px-4 py-2 text-sm font-semibold text-[#ffea6b] hover:bg-[#a0880a] disabled:opacity-60">{saving ? 'SUBMITTING...' : 'SUBMIT'}</button>
-          </div>
-        </div>
-      </div>
-    </div>
+          <FormActions>
+            <Button type="button" variant="outline" onClick={onClose}>CANCEL</Button>
+            <Button type="submit" disabled={saving}>{saving ? 'SUBMITTING...' : 'SUBMIT'}</Button>
+          </FormActions>
+      </Form>
+    </Modal>
   );
 }

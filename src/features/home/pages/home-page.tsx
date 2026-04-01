@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
-import { VideoHero, CarouselCard, LeaderboardCard, PerformanceTable } from '@/shared/components/home';
+import { VideoHero, CarouselCard, LeaderboardCard, PerformanceTable } from '@/features/home/components';
 import { useAuth } from '@/features/auth/hooks/use-auth';
 import { useCarouselImages } from '@/hooks/use-carousel-images';
 import { Plan } from '@core/types';

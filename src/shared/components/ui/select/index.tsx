@@ -1,0 +1,28 @@
+import * as React from 'react';
+import { cn } from '@core/utils';
+import './select.css';
+
+export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+  variant?: 'default' | 'surface';
+}
+
+const selectVariantClasses: Record<NonNullable<SelectProps['variant']>, string> = {
+  default: 'input',
+  surface: 'input h-11 w-full rounded-lg border border-white/20 bg-white/5 px-3 text-white',
+};
+
+const Select = React.forwardRef<HTMLSelectElement, SelectProps>(({ className, children, variant = 'surface', ...props }, ref) => {
+  return (
+    <select
+      ref={ref}
+      className={cn('select', selectVariantClasses[variant], className)}
+      {...props}
+    >
+      {children}
+    </select>
+  );
+});
+
+Select.displayName = 'Select';
+
+export { Select };

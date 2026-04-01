@@ -1,11 +1,13 @@
+import { Heading, Text } from '@/shared/components';
+
 export default function ReportsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Reports</h1>
-        <p className="text-muted-foreground">
+        <Heading as="h1" variant="h2">Reports</Heading>
+        <Text variant="body" className="text-muted-foreground">
           View your performance reports and analytics
-        </p>
+        </Text>
       </div>
       
       <div className="text-center text-muted-foreground py-12">

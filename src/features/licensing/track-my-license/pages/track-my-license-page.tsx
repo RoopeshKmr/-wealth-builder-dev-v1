@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { Heading, Text } from '@/shared/components';
 import './track-my-license-page.css';
 
 const STORAGE_KEY = 'lic_progress_v1';
@@ -206,13 +207,13 @@ export default function TrackMyLicensePage() {
 
       {/* Header Section */}
       <div className="track-header">
-        <h1 className="track-title">
+        <Heading as="h1" variant="h2" className="track-title">
           <span className="track-icon">⚡</span>
           TRACK MY LICENSE
-        </h1>
-        <p className="track-subtitle">
+        </Heading>
+        <Text variant="body" className="track-subtitle">
           Complete each step to charge your licensing journey
-        </p>
+        </Text>
       </div>
 
       {/* Progress Stats Glass Card */}
@@ -346,7 +347,7 @@ export default function TrackMyLicensePage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="video-modal-header">
-              <h3 className="video-modal-title">
+              <Heading as="h3" variant="h5" className="video-modal-title">
                 📹 Chapter {openIndex! + 1}
                 {currentModule!.videoUrls.length > 1 && (
                   <span className="video-count">
@@ -354,7 +355,7 @@ export default function TrackMyLicensePage() {
                     ({currentVideoIdx + 1}/{currentModule!.videoUrls.length})
                   </span>
                 )}
-              </h3>
+              </Heading>
               <button className="video-modal-close-btn" onClick={closeModal}>
                 ✕
               </button>

@@ -5,11 +5,16 @@
   background: linear-gradient(180deg, #191c22, #121419);
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .tracker-table-wrap {
   width: 100%;
   overflow: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .tracker-table {

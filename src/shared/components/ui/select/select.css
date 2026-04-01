@@ -1,0 +1,12 @@
+.select {
+  color-scheme: dark;
+}
+
+.select option {
+  background: #1e2431;
+  color: #fff;
+}
+
+.select:focus {
+  border-color: rgba(255, 215, 0, 0.5);
+}

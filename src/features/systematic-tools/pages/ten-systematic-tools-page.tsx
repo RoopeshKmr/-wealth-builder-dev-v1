@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/features/auth/hooks/use-auth';
 import { Plan } from '@core/types';
-import SecureSlidePlayer from '@/shared/components/systematic-tools/secure-slide-player';
-import CustomFlyerModal from '@/shared/components/org/custom-flyer-modal';
-import BusinessShowerFlyerModal from '@/shared/components/org/business-shower-flyer-modal';
-import '@/shared/components/systematic-tools/ten-tools.css';
+import { Heading, Text } from '@/shared/components';
+import SecureSlidePlayer from '@/features/systematic-tools/components/secure-slide-player';
+import CustomFlyerModal from '@/features/systematic-tools/components/custom-flyer-modal';
+import BusinessShowerFlyerModal from '@/features/systematic-tools/components/business-shower-flyer-modal';
+import '@/features/systematic-tools/components/ten-tools.css';
 
 type ToolOption = {
   title: string;
@@ -612,7 +613,7 @@ export default function TenSystematicToolsPage() {
       return (
         <div className="content-stage">
           <div className="stage-text">
-            <p>No tools are available for your current plan yet.</p>
+            <Text variant="body">No tools are available for your current plan yet.</Text>
           </div>
         </div>
       );
@@ -731,7 +732,7 @@ export default function TenSystematicToolsPage() {
     <div className="vault">
       <aside className="vault-left" onKeyDown={onLeftKeyDown} tabIndex={0}>
         <div className="vault-left-head">
-          <h2>10 Systematic Tools</h2>
+          <Heading as="h2" variant="h4">10 Systematic Tools</Heading>
         </div>
 
         <nav className="vault-menu">
@@ -762,7 +763,7 @@ export default function TenSystematicToolsPage() {
       <main className="vault-right">
         <header className="vault-right-head">
           <div className="title">
-            <h3>{activeItem?.label || '10 Systematic Tools'}</h3>
+            <Heading as="h3" variant="h5">{activeItem?.label || '10 Systematic Tools'}</Heading>
           </div>
           {isAdmin && (
             <div className="editor-bar">

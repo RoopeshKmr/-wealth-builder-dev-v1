@@ -11,17 +11,21 @@ const HomePage = lazy(() => import('@/features/home/pages/home-page'));
 const DashboardPage = lazy(() => import('@/features/dashboard/pages/dashboard-page'));
 const EventsPage = lazy(() => import('@/features/events/pages/events-page'));
 const EducationPage = lazy(() => import('@/features/education/pages/education-page'));
-const TeamPage = lazy(() => import('@/features/team/pages/team-page'));
 const ProspectTrackerPage = lazy(() => import('@/features/team/prospect/pages/prospect-tracker-page'));
+const OrgChartPage = lazy(() => import('@/features/team/org-chart/pages/org-chart-page'));
+const Tracker4x4Page = lazy(() => import('@/features/team/tracker-4x4/pages/tracker-4x4-page'));
+const AssociateTrackerPage = lazy(() => import('@/features/team/associate-tracker/pages/associate-tracker-page'));
+const LicensingTrackerPage = lazy(() => import('@/features/team/licensing-tracker/pages/licensing-tracker-page'));
+const ProductionTrackerPage = lazy(() => import('@/features/team/production-tracker/pages/production-tracker-page'));
 const ReportsPage = lazy(() => import('@/features/reports/pages/reports-page'));
 const SettingsPage = lazy(() => import('@/features/settings/pages/settings-page'));
 const ComponentsShowcase = lazy(() => import('@/features/showcase/pages/components-showcase'));
 const PublicInsightCenter = lazy(() => import('@/features/insight-center/pages/public-insight-center'));
 const PublicBusinessPage = lazy(() => import('@/features/education/pages/public-business-page'));
 const PublicEducationPage = lazy(() => import('@/features/education/pages/public-education-page'));
-const TrackMyLicensePage = lazy(() => import('@/features/licensing/pages/track-my-license-page'));
-const LicensingDocumentsPage = lazy(() => import('@/features/licensing/pages/licensing-documents-page'));
-const CrashCoursePage = lazy(() => import('@/features/licensing/pages/crash-course-page'));
+const TrackMyLicensePage = lazy(() => import('@/features/licensing/track-my-license/pages/track-my-license-page'));
+const LicensingDocumentsPage = lazy(() => import('@/features/licensing/licensing-documents/pages/licensing-documents-page'));
+const CrashCoursePage = lazy(() => import('@/features/licensing/crash-course/pages/crash-course-page'));
 const TenSystematicToolsPage = lazy(() => import('@/features/systematic-tools/pages/ten-systematic-tools-page'));
 
 // Loading component
@@ -136,11 +140,31 @@ const router = createBrowserRouter([
       },
       {
         path: 'team',
-        element: lazyLoad(TeamPage),
+        element: <Navigate to="/team/prospect-tracker" replace />,
       },
       {
         path: 'team/prospect-tracker',
         element: lazyLoad(ProspectTrackerPage),
+      },
+      {
+        path: 'team/org-chart',
+        element: lazyLoad(OrgChartPage),
+      },
+      {
+        path: 'team/4x4-tracker',
+        element: lazyLoad(Tracker4x4Page),
+      },
+      {
+        path: 'team/associate-tracker',
+        element: lazyLoad(AssociateTrackerPage),
+      },
+      {
+        path: 'team/licensing-tracker',
+        element: lazyLoad(LicensingTrackerPage),
+      },
+      {
+        path: 'team/production-tracker',
+        element: lazyLoad(ProductionTrackerPage),
       },
       {
         path: 'reports',

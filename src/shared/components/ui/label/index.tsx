@@ -2,12 +2,19 @@ import * as React from 'react';
 import { cn } from '@core/utils';
 import './label.css';
 
-export interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {}
+export interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {
+  variant?: 'default' | 'form';
+}
 
-const Label = React.forwardRef<HTMLLabelElement, LabelProps>(({ className, ...props }, ref) => (
+const labelVariantClasses: Record<NonNullable<LabelProps['variant']>, string> = {
+  default: '',
+  form: 'mb-1 block text-sm font-semibold text-white',
+};
+
+const Label = React.forwardRef<HTMLLabelElement, LabelProps>(({ className, variant = 'default', ...props }, ref) => (
   <label
     ref={ref}
-    className={cn('label', className)}
+    className={cn('label', labelVariantClasses[variant], className)}
     {...props}
   />
 ));

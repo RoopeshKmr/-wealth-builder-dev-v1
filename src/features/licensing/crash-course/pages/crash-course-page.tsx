@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '@/shared/components';
 import './crash-course-page.css';
 
 const STORAGE_MODULE_PROGRESS = 'crash_module_progress_v1';
@@ -391,12 +392,14 @@ export default function CrashCoursePage() {
                 </div>
 
                 <div className="cc-select-bar">
-                  <button
+                  <Button
+                    type="button"
+                    variant="ghost"
                     className="cc-btn cc-btn-gold cc-btn-wide"
                     onClick={() => openModule(mod)}
                   >
                     Open Module
-                  </button>
+                  </Button>
                 </div>
               </article>
             );

@@ -1,25 +1,49 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
 import { Plan } from '@/core/types';
-import { TrackerTable } from '@/shared/components';
+import {
+  Block,
+  Button,
+  ConfirmationDialog,
+  ErrorState,
+  LoadingState,
+  TrackerTable,
+} from '@/shared/components';
+import { useToastStore } from '@/store';
 import {
   activateProspectWithAgencyCode,
+  createProspect,
+  deleteProspect,
   fetchProspects,
   type Prospect,
   saveProspectCallLog,
   updateProspectDetails,
-} from '../../services/prospect-service';
+} from '../services/prospect-service';
+import { AddProspectModal } from '../components/add-prospect-modal';
 import { AddAgencyCodeModal } from '../components/add-agency-code-modal';
 import { CallLogModal } from '../components/call-log-modal';
 import { buildProspectColumns } from '../prospect-columns';
-import type { AddAgentFormData } from '../types';
+import type { AddAgentFormData, AddProspectFormData } from '../types';
 
 export default function ProspectTrackerPage() {
+  const pageHeading = 'Prospect Tracker';
+  const pageDescription = 'Track and manage your prospects';
+
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeCallLogProspect, setActiveCallLogProspect] = useState<Prospect | null>(null);
   const [addAgencyCodeFor, setAddAgencyCodeFor] = useState<Prospect | null>(null);
+  const [addProspectOpen, setAddProspectOpen] = useState(false);
   const [savingCallLog, setSavingCallLog] = useState(false);
+  const [editingProspect, setEditingProspect] = useState<Prospect | null>(null);
+  const [pendingDeleteProspect, setPendingDeleteProspect] = useState<Prospect | null>(null);
+  const [pageSize] = useState(20);
+  const [nextPageNum, setNextPageNum] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [sortBy] = useState('-created_at');
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const addToast = useToastStore((state) => state.addToast);
 
   const resolvedPlan = useMemo(() => {
     const planFromStorage =
@@ -42,11 +66,191 @@ export default function ProspectTrackerPage() {
   const isAgent = resolvedPlan === Plan.Agent;
 
   const updateProspectInState = (updated: Prospect) => {
-    setProspects((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+    setProspects((prev) =>
+      prev.map((item) => (String(item.id) === String(updated.id) ? { ...item, ...updated } : item))
+    );
   };
 
   const handleEditProspect = (row: Prospect) => {
-    window.alert(`Edit is coming soon for ${row.full_name || row.email}.`);
+    setEditingProspect(row);
+  };
+
+  const loadProspects = async (pageNum: number = 1, isInitial: boolean = true) => {
+    try {
+      if (isInitial) {
+        setLoading(true);
+        setError(null);
+      } else {
+        setLoadingMore(true);
+      }
+
+      const data = await fetchProspects({
+        page: pageNum,
+        pageSize: pageSize,
+        ordering: sortBy,
+      });
+
+      if (isInitial) {
+        setProspects(data.results);
+      } else {
+        setProspects((prev) => [...prev, ...data.results]);
+      }
+
+      const totalLoaded = isInitial ? data.results.length : prospects.length + data.results.length;
+      const hasMoreResults = totalLoaded < (data.count || totalLoaded);
+      setHasMore(hasMoreResults);
+      setNextPageNum(pageNum + 1);
+    } catch (err) {
+      if (isInitial) {
+        setError(err instanceof Error ? err.message : 'Failed to load prospects');
+      }
+      addToast({ type: 'error', message: 'Failed to load prospects.' });
+      console.error('Error loading prospects:', err);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  const mapProspectToForm = (prospect: Prospect): AddProspectFormData => ({
+    firstName: prospect.first_name || '',
+    lastName: prospect.last_name || '',
+    email: prospect.email || '',
+    phone: prospect.phone || '',
+    recruiter: prospect.recruited_by_name || '',
+    recruiterId: prospect.recruited_by ?? null,
+    leader: prospect.leader_name || '',
+    leaderId: prospect.leader ?? null,
+    gender: prospect.profile?.gender || '',
+    state: prospect.profile?.state || '',
+    birthday: prospect.profile?.birthday || '',
+    howKnown: prospect.profile?.how_known || '',
+    relationship:
+      prospect.profile?.relationship !== undefined && prospect.profile?.relationship !== null
+        ? String(prospect.profile.relationship)
+        : '',
+    occupation: prospect.profile?.occupation || '',
+    whatTold: prospect.profile?.what_told || '',
+    age25Plus: Boolean(prospect.profile?.flags?.age25Plus),
+    homeowner: Boolean(prospect.profile?.flags?.homeowner),
+    solidCareer: Boolean(prospect.profile?.flags?.solidCareer),
+    income75kPlus: Boolean(prospect.profile?.flags?.income75kPlus),
+    dissatisfied: Boolean(prospect.profile?.flags?.dissatisfied),
+    entrepreneurial: Boolean(prospect.profile?.flags?.entrepreneurial),
+    spanishPreferred: Boolean(prospect.profile?.flags?.spanishPreferred),
+    married: Boolean(prospect.profile?.flags?.married),
+    dependentKids: Boolean(prospect.profile?.flags?.dependentKids),
+  });
+
+  const handleUpdateProspect = async (formData: AddProspectFormData) => {
+    if (!editingProspect) return;
+
+    try {
+      setSavingCallLog(true);
+
+      const normalizedEmail = formData.email.trim().toLowerCase();
+      const normalizedPhone = formData.phone.trim();
+
+      const duplicate = prospects.find((item) => {
+        if (item.id === editingProspect.id) return false;
+        const sameEmail = normalizedEmail && item.email?.trim().toLowerCase() === normalizedEmail;
+        const samePhone = normalizedPhone && item.phone?.trim() === normalizedPhone;
+        return sameEmail || samePhone;
+      });
+
+      if (duplicate) {
+        addToast({
+          type: 'warning',
+          message: `A prospect with this ${normalizedEmail && duplicate.email?.trim().toLowerCase() === normalizedEmail ? 'email' : 'phone'} already exists.`,
+        });
+        return;
+      }
+
+      const fullName = `${formData.firstName || ''} ${formData.lastName || ''}`.trim();
+      const updated = await updateProspectDetails(editingProspect.id, {
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        full_name: fullName || undefined,
+        email: formData.email,
+        phone: formData.phone,
+        recruited_by: formData.recruiterId,
+        leader: formData.leaderId,
+        profile: {
+          state: formData.state || undefined,
+          birthday: formData.birthday || undefined,
+          gender: formData.gender || undefined,
+          occupation: formData.occupation || undefined,
+          how_known: formData.howKnown || undefined,
+          what_told: formData.whatTold || undefined,
+          relationship: formData.relationship ? Number(formData.relationship) : null,
+          dependent_children: formData.dependentKids,
+          flags: {
+            age25Plus: formData.age25Plus,
+            homeowner: formData.homeowner,
+            solidCareer: formData.solidCareer,
+            income75kPlus: formData.income75kPlus,
+            dissatisfied: formData.dissatisfied,
+            entrepreneurial: formData.entrepreneurial,
+            spanishPreferred: formData.spanishPreferred,
+            married: formData.married,
+            dependentKids: formData.dependentKids,
+          },
+        },
+      });
+
+      // Apply an immediate local merge so UI updates even if the API returns a partial object.
+      const optimisticMerged: Prospect = {
+        ...editingProspect,
+        ...updated,
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        full_name: fullName || updated.full_name || editingProspect.full_name,
+        email: formData.email,
+        phone: formData.phone,
+        recruited_by: formData.recruiterId,
+        leader: formData.leaderId,
+        recruited_by_name: formData.recruiter || editingProspect.recruited_by_name,
+        leader_name: formData.leader || editingProspect.leader_name,
+        profile: {
+          ...(editingProspect.profile || {}),
+          ...(updated.profile || {}),
+          city: updated.profile?.city || editingProspect.profile?.city || '',
+          phone: formData.phone || updated.profile?.phone || editingProspect.profile?.phone || '',
+          state: formData.state || '',
+          birthday: formData.birthday || null,
+          gender: formData.gender || '',
+          occupation: formData.occupation || '',
+          how_known: formData.howKnown || '',
+          what_told: formData.whatTold || '',
+          relationship: formData.relationship ? Number(formData.relationship) : null,
+          dependent_children: formData.dependentKids,
+          flags: {
+            ...(editingProspect.profile?.flags || {}),
+            ...(updated.profile?.flags || {}),
+            age25Plus: formData.age25Plus,
+            homeowner: formData.homeowner,
+            solidCareer: formData.solidCareer,
+            income75kPlus: formData.income75kPlus,
+            dissatisfied: formData.dissatisfied,
+            entrepreneurial: formData.entrepreneurial,
+            spanishPreferred: formData.spanishPreferred,
+            married: formData.married,
+            dependentKids: formData.dependentKids,
+          },
+        },
+      };
+
+      updateProspectInState(optimisticMerged);
+      setEditingProspect(null);
+      addToast({ type: 'success', message: 'Prospect updated successfully.' });
+    } catch (err) {
+      addToast({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to update prospect.',
+      });
+    } finally {
+      setSavingCallLog(false);
+    }
   };
 
   const handleOpenCallLog = (row: Prospect) => {
@@ -55,7 +259,7 @@ export default function ProspectTrackerPage() {
 
   const handleInviteProspect = (row: Prospect) => {
     if (!row.email) {
-      window.alert('This prospect does not have an email address.');
+      addToast({ type: 'warning', message: 'This prospect does not have an email address.' });
       return;
     }
 
@@ -72,7 +276,10 @@ export default function ProspectTrackerPage() {
       updateProspectInState(updated);
       setActiveCallLogProspect(updated);
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : 'Failed to save call log.');
+      addToast({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to save call log.',
+      });
     } finally {
       setSavingCallLog(false);
     }
@@ -108,9 +315,12 @@ export default function ProspectTrackerPage() {
       updateProspectInState(updated);
       setActiveCallLogProspect(updated);
       setAddAgencyCodeFor(null);
-      window.alert('Agency code added successfully.');
+      addToast({ type: 'success', message: 'Agency code added successfully.' });
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : 'Failed to add agency code.');
+      addToast({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to add agency code.',
+      });
     } finally {
       setSavingCallLog(false);
     }
@@ -123,53 +333,155 @@ export default function ProspectTrackerPage() {
       updateProspectInState(updated);
       setActiveCallLogProspect(updated);
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : `Failed to ${actionLabel.toLowerCase()}.`);
+      addToast({
+        type: 'error',
+        message: err instanceof Error ? err.message : `Failed to ${actionLabel.toLowerCase()}.`,
+      });
     } finally {
       setSavingCallLog(false);
     }
   };
 
   const handleDeleteProspect = (row: Prospect) => {
-    const name = row.full_name || row.email || `#${row.id}`;
-    const confirmed = window.confirm(`Remove ${name} from this list?`);
-    if (!confirmed) return;
+    setPendingDeleteProspect(row);
+  };
 
-    setProspects((prev) => prev.filter((prospect) => prospect.id !== row.id));
+  const confirmDeleteProspect = async () => {
+    if (!pendingDeleteProspect) return;
+
+    const previousProspects = prospects;
+    setProspects((prev) =>
+      prev.filter((prospect) => String(prospect.id) !== String(pendingDeleteProspect.id))
+    );
+
+    try {
+      setSavingCallLog(true);
+      await deleteProspect(pendingDeleteProspect.id);
+      setPendingDeleteProspect(null);
+      addToast({ type: 'success', message: 'Prospect deleted successfully.' });
+
+      if (prospects.length === 0) {
+        await loadProspects(1, true);
+      }
+    } catch (err) {
+      // Roll back list state if API delete fails.
+      setProspects(previousProspects);
+      addToast({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to delete prospect.',
+      });
+    } finally {
+      setSavingCallLog(false);
+    }
+  };
+
+  const handleCreateProspect = async (formData: AddProspectFormData) => {
+    try {
+      setSavingCallLog(true);
+
+      const normalizedEmail = formData.email.trim().toLowerCase();
+      const normalizedPhone = formData.phone.trim();
+      const duplicate = prospects.find((item) => {
+        const sameEmail = normalizedEmail && item.email?.trim().toLowerCase() === normalizedEmail;
+        const samePhone = normalizedPhone && item.phone?.trim() === normalizedPhone;
+        return sameEmail || samePhone;
+      });
+
+      if (duplicate) {
+        addToast({
+          type: 'warning',
+          message: `A prospect with this ${normalizedEmail && duplicate.email?.trim().toLowerCase() === normalizedEmail ? 'email' : 'phone'} already exists.`,
+        });
+        return;
+      }
+
+      const created = await createProspect({
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        recruited_by: formData.recruiterId,
+        leader: formData.leaderId,
+        profile: {
+          state: formData.state || undefined,
+          birthday: formData.birthday || undefined,
+          gender: formData.gender || undefined,
+          occupation: formData.occupation || undefined,
+          how_known: formData.howKnown || undefined,
+          what_told: formData.whatTold || undefined,
+          relationship: formData.relationship ? Number(formData.relationship) : null,
+          dependent_children: formData.dependentKids,
+          flags: {
+            age25Plus: formData.age25Plus,
+            homeowner: formData.homeowner,
+            solidCareer: formData.solidCareer,
+            income75kPlus: formData.income75kPlus,
+            dissatisfied: formData.dissatisfied,
+            entrepreneurial: formData.entrepreneurial,
+            spanishPreferred: formData.spanishPreferred,
+            married: formData.married,
+            dependentKids: formData.dependentKids,
+          },
+        },
+        prospect_meta: {
+          outcome: 'Both',
+          mark: 'default',
+          hot: false,
+          top25: false,
+        },
+      });
+
+      setProspects((prev) => [created, ...prev]);
+      setAddProspectOpen(false);
+      addToast({ type: 'success', message: 'Prospect added successfully.' });
+    } catch (err) {
+      addToast({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to add prospect.',
+      });
+    } finally {
+      setSavingCallLog(false);
+    }
   };
 
   const columns = useMemo(
     () => buildProspectColumns(handleEditProspect, handleOpenCallLog, handleDeleteProspect),
-    []
+    [handleDeleteProspect]
   );
 
   useEffect(() => {
-    const loadProspects = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await fetchProspects();
-        setProspects(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load prospects');
-        console.error('Error loading prospects:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+    loadProspects(1, true);
+  }, [sortBy]);
 
-    loadProspects();
-  }, []);
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+
+    const observer = new IntersectionObserver(
+      async (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading && prospects.length > 0) {
+          await loadProspects(nextPageNum, false);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, loading, nextPageNum, prospects.length]);
+
+  const totalCount = prospects.length;
+
+
 
   if (loading) {
     return (
       <div className="p-6">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">Prospect Tracker</h1>
-          <p className="text-gray-400">Track and manage your prospects</p>
-        </div>
-        <div className="flex items-center justify-center py-12">
-          <div className="text-lg text-gray-400">Loading prospects...</div>
-        </div>
+        <LoadingState
+          pageHeading={pageHeading}
+          pageDescription={pageDescription}
+          title="Loading prospects"
+          description="Fetching your latest prospect data..."
+        />
       </div>
     );
   }
@@ -177,41 +489,56 @@ export default function ProspectTrackerPage() {
   if (error) {
     return (
       <div className="p-6">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">Prospect Tracker</h1>
-          <p className="text-gray-400">Track and manage your prospects</p>
-        </div>
-        <div className="bg-red-900/20 border border-red-500 rounded-lg p-6">
-          <h3 className="text-red-400 font-semibold mb-2">Error Loading Prospects</h3>
-          <p className="text-red-300">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
-          >
-            Retry
-          </button>
-        </div>
+        <ErrorState
+          pageHeading={pageHeading}
+          pageDescription={pageDescription}
+          title="Error Loading Prospects"
+          description={error}
+          retryLabel="Retry"
+          onRetry={() => window.location.reload()}
+        />
       </div>
     );
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Prospect Tracker</h1>
-        <p className="text-gray-400">Track and manage your prospects • {prospects.length} total</p>
+    <div className="flex h-screen flex-col p-6">
+      <Block
+        title={pageHeading}
+        description={`${pageDescription} • ${totalCount} total`}
+        className="mb-6 flex-shrink-0"
+        actions={
+          <Button type="button" onClick={() => setAddProspectOpen(true)}>
+            + New Prospect
+          </Button>
+        }
+      />
+
+      <div className="flex-1 overflow-hidden">
+        <TrackerTable
+          columns={columns}
+          rows={prospects}
+          rowKey={(row) => String(row.id)}
+          stickyFirstNColumns={3}
+          resizable
+          tableId="prospect-tracker"
+          emptyMessage="No prospects found. Add your first prospect to get started!"
+          className="h-full"
+        />
       </div>
 
-      <TrackerTable
-        columns={columns}
-        rows={prospects}
-        rowKey={(row) => String(row.id)}
-        stickyFirstNColumns={3}
-        resizable
-        tableId="prospect-tracker"
-        defaultSort={{ key: 'full_name', direction: 'asc' }}
-        emptyMessage="No prospects found. Add your first prospect to get started!"
-      />
+      <div ref={sentinelRef} className="mt-4 flex-shrink-0">
+        {loadingMore && (
+          <div className="flex items-center justify-center py-4">
+            <div className="text-sm text-white/60">Loading more prospects...</div>
+          </div>
+        )}
+        {!hasMore && prospects.length > 0 && (
+          <div className="flex items-center justify-center py-4">
+            <div className="text-sm text-white/60">No more prospects to load</div>
+          </div>
+        )}
+      </div>
 
       <CallLogModal
         prospect={activeCallLogProspect}
@@ -232,6 +559,34 @@ export default function ProspectTrackerPage() {
         saving={savingCallLog}
         onClose={() => setAddAgencyCodeFor(null)}
         onSubmit={handleSubmitAddAgencyCode}
+      />
+
+      <AddProspectModal
+        open={addProspectOpen}
+        saving={savingCallLog}
+        onClose={() => setAddProspectOpen(false)}
+        onSubmit={handleCreateProspect}
+      />
+
+      <AddProspectModal
+        open={Boolean(editingProspect)}
+        title="Edit Prospect"
+        submitLabel="Update Prospect"
+        initialForm={editingProspect ? mapProspectToForm(editingProspect) : null}
+        saving={savingCallLog}
+        onClose={() => setEditingProspect(null)}
+        onSubmit={handleUpdateProspect}
+      />
+
+      <ConfirmationDialog
+        open={Boolean(pendingDeleteProspect)}
+        title="Delete Prospect"
+        message={`Remove ${pendingDeleteProspect?.full_name || pendingDeleteProspect?.email || ''} from this list?`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        loading={savingCallLog}
+        onClose={() => setPendingDeleteProspect(null)}
+        onConfirm={confirmDeleteProspect}
       />
     </div>
   );

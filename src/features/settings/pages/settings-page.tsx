@@ -1,11 +1,13 @@
+import { Heading, Text } from '@/shared/components';
+
 export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Settings</h1>
-        <p className="text-muted-foreground">
+        <Heading as="h1" variant="h2">Settings</Heading>
+        <Text variant="body" className="text-muted-foreground">
           Manage your account settings and preferences
-        </p>
+        </Text>
       </div>
       
       <div className="text-center text-muted-foreground py-12">
