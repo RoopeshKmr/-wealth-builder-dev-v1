@@ -26,6 +26,7 @@
 }
 
 .tracker-th {
+  box-sizing: border-box;
   position: relative;
   z-index: 2;
   background: linear-gradient(180deg, #2b3038, #22262d);
@@ -169,10 +170,13 @@
 }
 
 .tracker-td {
+  box-sizing: border-box;
   padding: 10px;
   border-right: 1px solid rgba(255, 255, 255, 0.06);
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   background: rgba(255, 255, 255, 0.02);
 }
 
@@ -198,12 +202,25 @@
   position: sticky;
   z-index: 1;
   background: linear-gradient(180deg, #1f232b, #181b22);
-  box-shadow: 8px 0 14px rgba(0, 0, 0, 0.22);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.12);
 }
 
 .tracker-th.sticky-col {
   z-index: 3;
   background: linear-gradient(180deg, #313741, #272c34);
+}
+
+.tracker-td.sticky-col {
+  z-index: 2;
+  background: linear-gradient(180deg, #1f232b, #181b22);
+}
+
+.tracker-tr:nth-child(even) .tracker-td.sticky-col {
+  background: linear-gradient(180deg, #232833, #1c2029);
+}
+
+.tracker-tr:hover .tracker-td.sticky-col {
+  background: linear-gradient(180deg, #2b313d, #232933);
 }
 
 .align-left {

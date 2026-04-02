@@ -307,14 +307,15 @@ export function TrackerTable<T>({
     if (!resizable) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizing.current || !resizeRef.current) return;
+      const resizeState = resizeRef.current;
+      if (!isResizing.current || !resizeState) return;
 
-      const delta = e.clientX - resizeRef.current.startX;
-      const newWidth = Math.max(80, resizeRef.current.startWidth + delta);
+      const delta = e.clientX - resizeState.startX;
+      const newWidth = Math.max(80, resizeState.startWidth + delta);
 
       setColumnWidths((prev) => ({
         ...prev,
-        [resizeRef.current!.columnKey]: newWidth,
+        [resizeState.columnKey]: newWidth,
       }));
     };
 
@@ -369,6 +370,7 @@ export function TrackerTable<T>({
                     style={{
                       width,
                       minWidth: width,
+                      maxWidth: width,
                       ...(isSticky ? { left: stickyOffsets[column.key] ?? 0 } : {}),
                     }}
                   >
@@ -430,6 +432,7 @@ export function TrackerTable<T>({
                     style={{
                       width,
                       minWidth: width,
+                      maxWidth: width,
                       ...(isSticky ? { left: stickyOffsets[column.key] ?? 0 } : {}),
                     }}
                   >
@@ -506,6 +509,7 @@ export function TrackerTable<T>({
                         style={{
                           width,
                           minWidth: width,
+                          maxWidth: width,
                           ...(isSticky ? { left: stickyOffsets[column.key] ?? 0 } : {}),
                         }}
                       >
