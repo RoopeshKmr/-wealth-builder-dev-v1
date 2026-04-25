@@ -73,6 +73,7 @@ export function DatePicker({
         popperClassName="date-picker-popper"
         calendarClassName="date-picker-calendar"
         showPopperArrow={false}
+        popperProps={{ strategy: 'fixed' }}
         disabled={disabled}
         required={required}
         autoFocus={autoFocus}
@@ -123,6 +124,7 @@ export function DateTimePicker({
         popperClassName="date-picker-popper"
         calendarClassName="date-picker-calendar"
         showPopperArrow={false}
+        popperProps={{ strategy: 'fixed' }}
         disabled={disabled}
         required={required}
         autoFocus={autoFocus}

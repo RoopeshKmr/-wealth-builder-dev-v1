@@ -5,6 +5,8 @@ export interface AssociateTrackerRecord {
   user_id: number;
   user_name: string;
   user_email: string;
+  recruiter_name?: string | null;
+  leader_name?: string | null;
   agency_code?: string | null;
   invited_at?: string | null;
   avatar_url?: string | null;
@@ -41,6 +43,13 @@ interface PaginatedTrackerResponse<T> {
   results: T[];
 }
 
+export interface AssociateTrackerQuery {
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+  filters?: Record<string, string>;
+}
+
 function getAuthHeaders(): HeadersInit {
   const token = localStorage.getItem('wb.authToken');
   if (!token) throw new Error('No authentication token found');
@@ -50,38 +59,43 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
-function resolveNextUrl(nextUrl: string): string {
-  if (nextUrl.startsWith('http://') || nextUrl.startsWith('https://')) {
-    return nextUrl;
-  }
-  return `${API_BASE_URL}${nextUrl}`;
-}
-
-export async function fetchAssociates(): Promise<AssociateTrackerRecord[]> {
-  const headers = getAuthHeaders();
-  const records: AssociateTrackerRecord[] = [];
-  let nextUrl: string | null = `${API_BASE_URL}/api/tracker/trackers/associate/?page_size=200`;
-  let pageSafety = 0;
-
-  while (nextUrl && pageSafety < 20) {
-    const response = await fetch(nextUrl, { headers });
-    if (!response.ok) throw new Error(`Failed to fetch associates: ${response.statusText}`);
-
-    const data = (await response.json()) as
-      | PaginatedTrackerResponse<AssociateTrackerRecord>
-      | AssociateTrackerRecord[];
-
-    if (Array.isArray(data)) {
-      records.push(...data);
-      break;
-    }
-
-    records.push(...data.results);
-    nextUrl = data.next ? resolveNextUrl(data.next) : null;
-    pageSafety += 1;
+export async function fetchAssociates(
+  query: AssociateTrackerQuery = {}
+): Promise<PaginatedTrackerResponse<AssociateTrackerRecord>> {
+  const params = new URLSearchParams();
+  params.set('page', String(query.page ?? 1));
+  params.set('page_size', String(query.pageSize ?? 10));
+  if (query.sort) {
+    params.set('sort', query.sort);
   }
 
-  return records;
+  if (query.filters) {
+    Object.entries(query.filters).forEach(([key, value]) => {
+      const normalized = value?.trim();
+      if (!normalized) return;
+      params.set(key, normalized);
+    });
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/tracker/trackers/associate/?${params.toString()}`, {
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to fetch associates: ${response.statusText}`);
+
+  const data = (await response.json()) as
+    | PaginatedTrackerResponse<AssociateTrackerRecord>
+    | AssociateTrackerRecord[];
+
+  if (Array.isArray(data)) {
+    return {
+      count: data.length,
+      next: null,
+      previous: null,
+      results: data,
+    };
+  }
+
+  return data;
 }
 
 export async function updateAssociateTracker(

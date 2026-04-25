@@ -44,6 +44,13 @@ interface TrackerTableProps<T> {
   tableId?: string;
   resizable?: boolean;
   headerGroupRows?: TrackerTableHeaderGroupCell[][];
+  serverSort?: {
+    key: string;
+    direction: SortDirection;
+  } | null;
+  onServerSortChange?: (sort: { key: string; direction: SortDirection } | null) => void;
+  serverFilters?: Record<string, string>;
+  onServerFilterChange?: (filters: Record<string, string>) => void;
 }
 
 function toSortableValue(value: unknown): string | number {
@@ -146,7 +153,12 @@ export function TrackerTable<T>({
   tableId,
   resizable = true,
   headerGroupRows = [],
+  serverSort = null,
+  onServerSortChange,
+  serverFilters,
+  onServerFilterChange,
 }: TrackerTableProps<T>) {
+  const useServerMode = Boolean(onServerSortChange || onServerFilterChange);
   const [sort, setSort] = useState<{ key: string; direction: SortDirection } | null>(
     defaultSort ? { key: defaultSort.key, direction: defaultSort.direction ?? 'asc' } : null
   );
@@ -250,8 +262,30 @@ export function TrackerTable<T>({
     });
   }, [filteredRows, sort, columns]);
 
+  const activeSort = useServerMode ? serverSort : sort;
+  const visibleRows = useServerMode ? rows : sortedRows;
+
+  useEffect(() => {
+    if (!serverFilters) return;
+    setSearchDraft(serverFilters);
+    setSearchApplied(serverFilters);
+  }, [serverFilters]);
+
   const handleSort = (column: TrackerTableColumn<T>) => {
     if (!column.sortable) return;
+
+    if (useServerMode) {
+      const prev = serverSort;
+      if (!prev || prev.key !== column.key) {
+        onServerSortChange?.({ key: column.key, direction: 'asc' });
+        return;
+      }
+      onServerSortChange?.({
+        key: column.key,
+        direction: prev.direction === 'asc' ? 'desc' : 'asc',
+      });
+      return;
+    }
 
     setSort((prev) => {
       if (!prev || prev.key !== column.key) {
@@ -277,10 +311,15 @@ export function TrackerTable<T>({
   };
 
   const applySearchForColumn = (columnKey: string) => {
-    setSearchApplied((prev) => ({
-      ...prev,
+    const nextFilters = {
+      ...searchApplied,
       [columnKey]: (searchDraft[columnKey] ?? '').trim(),
-    }));
+    };
+
+    setSearchApplied(nextFilters);
+    if (useServerMode) {
+      onServerFilterChange?.(nextFilters);
+    }
   };
 
   const toggleLockColumn = (columnKey: string, e: React.MouseEvent) => {
@@ -381,7 +420,7 @@ export function TrackerTable<T>({
             <tr>
               {columns.map((column) => {
                 const isSticky = getStickyColumns.has(column.key);
-                const isSorted = sort?.key === column.key;
+                const isSorted = activeSort?.key === column.key;
                 const width = getColumnWidth(column);
                 const canResize = resizable && (column.resizable !== false);
                 const isLocked = lockedColumns.has(column.key);
@@ -418,7 +457,7 @@ export function TrackerTable<T>({
                           aria-label={`Sort by ${column.label}`}
                         >
                           <span className="tracker-sort-indicator">
-                            {isSorted ? (sort?.direction === 'asc' ? '▲' : '▼') : '↕'}
+                            {isSorted ? (activeSort?.direction === 'asc' ? '▲' : '▼') : '↕'}
                           </span>
                         </button>
                       )}
@@ -502,7 +541,7 @@ export function TrackerTable<T>({
               </tr>
             )}
 
-            {!loading && sortedRows.length === 0 && (
+            {!loading && visibleRows.length === 0 && (
               <tr>
                 <td colSpan={columns.length} className="tracker-empty-cell">
                   {emptyMessage}
@@ -511,7 +550,7 @@ export function TrackerTable<T>({
             )}
 
             {!loading &&
-              sortedRows.map((row, rowIndex) => (
+              visibleRows.map((row, rowIndex) => (
                 <tr
                   key={rowKey(row, rowIndex)}
                   className={`tracker-tr ${onRowClick ? 'tracker-clickable' : ''}`}

@@ -1,4 +1,4 @@
-import type { TrackerTableColumn } from '@/shared/components';
+import { DatePicker, type TrackerTableColumn } from '@/shared/components';
 import { TrackerUserCell } from '@/features/team/components/tracker-user-cell';
 import { TrackerNotesCell } from '@/features/team/components/tracker-notes-cell';
 import type { TrackerNote } from '@/features/team/services/tracker-notes-service';
@@ -10,6 +10,11 @@ function asYesNo(value: boolean): string {
 
 interface BuildLicensingColumnsOptions {
   onToggle: (userId: number, field: keyof LicensingTrackerRecord, value: boolean) => void;
+  onPatch: (
+    userId: number,
+    field: keyof LicensingTrackerRecord,
+    value: string | boolean | null
+  ) => void;
   savingKeySet: Set<string>;
   notesByUserId: Record<number, TrackerNote[]>;
   noteDraftByUserId: Record<number, string>;
@@ -29,25 +34,30 @@ function renderCheckbox(
 ) {
   const savingKey = `${row.user_id}:${String(field)}`;
   const checked = Boolean(row[field]);
+  const saving = options.savingKeySet.has(savingKey);
   return (
-    <label className={`tracker-toggle-box ${checked ? 'is-on' : 'is-off'}`}>
-      <input
-        className="tracker-checkbox-lg"
-        type="checkbox"
-        checked={checked}
-        disabled={options.savingKeySet.has(savingKey)}
-        aria-label={checked ? 'Checked' : 'Unchecked'}
-        onChange={(e) => options.onToggle(row.user_id, field, e.target.checked)}
-      />
-    </label>
+    <div className="flex h-8 items-center justify-center">
+      <button
+        type="button"
+        className={`tracker-toggle-box ${checked ? 'is-on' : 'is-off'} ${saving ? 'cursor-wait opacity-75' : ''}`}
+        disabled={saving}
+        aria-label={`${field} ${checked ? 'done' : 'pending'}`}
+        onClick={() => options.onToggle(row.user_id, field, !checked)}
+      >
+        <span className={`text-xs font-semibold ${checked ? 'text-emerald-300' : 'text-rose-300'}`}>
+          {checked ? 'Done' : 'Pending'}
+        </span>
+      </button>
+    </div>
   );
 }
 
-function formatDate(value: string | null): string {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString();
+function isSaving(
+  row: LicensingTrackerRecord,
+  field: keyof LicensingTrackerRecord,
+  options: BuildLicensingColumnsOptions
+): boolean {
+  return options.savingKeySet.has(`${row.user_id}:${String(field)}`);
 }
 
 export function buildLicensingColumns(
@@ -59,9 +69,9 @@ export function buildLicensingColumns(
       label: '#',
       width: 40,
       align: 'center',
-      sortable: true,
-      value: (row) => row.id,
-      render: (row) => row.id,
+      sortable: false,
+      value: (row) => row.serial_no ?? row.id,
+      render: (row) => row.serial_no ?? row.id,
     },
     {
       key: 'user_name',
@@ -84,8 +94,8 @@ export function buildLicensingColumns(
       width: 200,
       sortable: true,
       searchable: true,
-      value: () => '',
-      render: () => '-',
+      value: (row) => row.recruiter_name || '',
+      render: (row) => row.recruiter_name || '-',
     },
     {
       key: 'leader',
@@ -93,8 +103,8 @@ export function buildLicensingColumns(
       width: 200,
       sortable: true,
       searchable: true,
-      value: () => '',
-      render: () => '-',
+      value: (row) => row.leader_name || '',
+      render: (row) => row.leader_name || '-',
     },
     {
       key: 'xcel',
@@ -114,7 +124,14 @@ export function buildLicensingColumns(
       sortable: true,
       searchable: true,
       value: (row) => row.test_date || '',
-      render: (row) => formatDate(row.test_date),
+      render: (row) => (
+        <DatePicker
+          value={row.test_date || ''}
+          onChange={(value) => options.onPatch(row.user_id, 'test_date', value || null)}
+          disabled={isSaving(row, 'test_date', options)}
+          className="h-8"
+        />
+      ),
     },
     {
       key: 'test_result',
@@ -123,8 +140,27 @@ export function buildLicensingColumns(
       align: 'center',
       sortable: true,
       searchable: true,
-      render: (row) => row.test_result || '-',
-      value: (row) => row.test_result || '',
+      value: (row) => `${row.test_result || ''} ${row.test_result_date || ''}`.trim(),
+      render: (row) => (
+        <div className="flex w-full flex-row gap-1">
+          <DatePicker
+            value={row.test_result_date || ''}
+            onChange={(value) => options.onPatch(row.user_id, 'test_result_date', value || null)}
+            disabled={isSaving(row, 'test_result_date', options)}
+            className="h-8"
+          />
+          <select
+            className="h-8 w-full rounded border border-white/15 bg-white/5 px-2 text-xs text-white outline-none focus:border-amber-300/50"
+            value={row.test_result || ''}
+            disabled={isSaving(row, 'test_result', options)}
+            onChange={(e) => options.onPatch(row.user_id, 'test_result', e.target.value)}
+          >
+            <option value="" style={{ color: '#111827', backgroundColor: '#ffffff' }}></option>
+            <option value="Yes" style={{ color: '#111827', backgroundColor: '#ffffff' }}>Yes</option>
+            <option value="No" style={{ color: '#111827', backgroundColor: '#ffffff' }}>No</option>
+          </select>
+        </div>
+      ),
     },
     {
       key: 'fingerprint',
@@ -144,7 +180,14 @@ export function buildLicensingColumns(
       sortable: true,
       searchable: true,
       value: (row) => row.sircon_nipr_date || '',
-      render: (row) => formatDate(row.sircon_nipr_date),
+      render: (row) => (
+        <DatePicker
+          value={row.sircon_nipr_date || ''}
+          onChange={(value) => options.onPatch(row.user_id, 'sircon_nipr_date', value || null)}
+          disabled={isSaving(row, 'sircon_nipr_date', options)}
+          className="h-8"
+        />
+      ),
     },
     {
       key: 'license_cert',
@@ -184,7 +227,14 @@ export function buildLicensingColumns(
       sortable: true,
       searchable: true,
       value: (row) => row.agent_approval_date || '',
-      render: (row) => formatDate(row.agent_approval_date),
+      render: (row) => (
+        <DatePicker
+          value={row.agent_approval_date || ''}
+          onChange={(value) => options.onPatch(row.user_id, 'agent_approval_date', value || null)}
+          disabled={isSaving(row, 'agent_approval_date', options)}
+          className="h-8"
+        />
+      ),
     },
     {
       key: 'continuing_ed',

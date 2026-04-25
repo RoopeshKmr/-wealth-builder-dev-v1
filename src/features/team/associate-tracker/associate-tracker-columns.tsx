@@ -74,8 +74,8 @@ export function buildAssociateColumns(
       width: 200,
       sortable: true,
       searchable: true,
-      value: () => '',
-      render: () => '-',
+      value: (row) => row.recruiter_name || '',
+      render: (row) => row.recruiter_name || '-',
     },
     {
       key: 'leader',
@@ -83,8 +83,8 @@ export function buildAssociateColumns(
       width: 200,
       sortable: true,
       searchable: true,
-      value: () => '',
-      render: () => '-',
+      value: (row) => row.leader_name || '',
+      render: (row) => row.leader_name || '-',
     },
     {
       key: 'milestone_multi_handed',

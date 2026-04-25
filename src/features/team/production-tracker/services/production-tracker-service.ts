@@ -57,6 +57,51 @@ function resolveNextUrl(nextUrl: string): string {
   return `${API_BASE_URL}${nextUrl}`;
 }
 
+export interface CreateProductionPayload {
+  prospect?: number | null;
+  client_name: string;
+  date_written?: string | null;
+  closure_date?: string | null;
+  delivery?: string;
+  status?: string;
+  notes?: string;
+  trial_app?: boolean;
+  chargeback?: boolean;
+  chargeback_deposited_12_months?: boolean;
+  chargeback_deposited_26_months?: boolean;
+  policy_company?: string;
+  policy_number?: string;
+  policy_product?: string;
+  policy_other_product?: string;
+  points_target?: number | null;
+  points_forty?: number | null;
+  points_sixty?: number | null;
+  agent_1?: number | null;
+  agent_1_name?: string;
+  agent_1_pct?: number;
+  agent_2?: number | null;
+  agent_2_name?: string;
+  agent_2_pct?: number;
+  split_mode?: 'split' | 'solo';
+  advance_first_date?: string | null;
+}
+
+export type UpdateProductionPayload = Partial<CreateProductionPayload>;
+
+export async function createProductionRecord(payload: CreateProductionPayload): Promise<ProductionTrackerRecord> {
+  const headers = getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/api/tracker/production/`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to create production record: ${text}`);
+  }
+  return (await response.json()) as ProductionTrackerRecord;
+}
+
 export async function fetchProductionTracker(): Promise<ProductionTrackerRecord[]> {
   const headers = getAuthHeaders();
   const records: ProductionTrackerRecord[] = [];
@@ -82,4 +127,36 @@ export async function fetchProductionTracker(): Promise<ProductionTrackerRecord[
   }
 
   return records;
+}
+
+export async function updateProductionRecord(
+  recordId: number,
+  payload: UpdateProductionPayload
+): Promise<ProductionTrackerRecord> {
+  const headers = getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/api/tracker/production/${recordId}/`, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to update production record: ${text}`);
+  }
+
+  return (await response.json()) as ProductionTrackerRecord;
+}
+
+export async function deleteProductionRecord(recordId: number): Promise<void> {
+  const headers = getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/api/tracker/production/${recordId}/`, {
+    method: 'DELETE',
+    headers,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to delete production record: ${text}`);
+  }
 }

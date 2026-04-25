@@ -20,7 +20,9 @@ import {
 } from '../services/prospect-service';
 import { AddProspectModal } from '../components/add-prospect-modal';
 import { AddAgencyCodeModal } from '../components/add-agency-code-modal';
+import { AddProductionModal, type AddProductionFormData } from '../components/add-production-modal';
 import { CallLogModal } from '../components/call-log-modal';
+import { createProductionRecord } from '@/features/team/production-tracker/services/production-tracker-service';
 import { buildProspectColumns } from '../prospect-columns';
 import type { AddAgentFormData, AddProspectFormData } from '../types';
 import {
@@ -29,6 +31,19 @@ import {
   type TrackerNote,
 } from '@/features/team/services/tracker-notes-service';
 import { TrackerNotesModal } from '@/features/team/components/tracker-notes-modal';
+
+type SortDirection = 'asc' | 'desc';
+
+function toProspectSort(sort: { key: string; direction: SortDirection } | null): string {
+  if (!sort) return '-created_at';
+  const keyMap: Record<string, string> = {
+    full_name: 'name',
+    recruited_by_name: 'recruiter_name',
+    leader_name: 'leader_name',
+  };
+  const mappedKey = keyMap[sort.key] || sort.key;
+  return sort.direction === 'desc' ? `-${mappedKey}` : mappedKey;
+}
 
 export default function ProspectTrackerPage() {
   const pageHeading = 'Prospect Tracker';
@@ -39,8 +54,11 @@ export default function ProspectTrackerPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeCallLogProspect, setActiveCallLogProspect] = useState<Prospect | null>(null);
   const [addAgencyCodeFor, setAddAgencyCodeFor] = useState<Prospect | null>(null);
+  const [addProductionFor, setAddProductionFor] = useState<Prospect | null>(null);
+  const [savingProduction, setSavingProduction] = useState(false);
   const [addProspectOpen, setAddProspectOpen] = useState(false);
   const [savingCallLog, setSavingCallLog] = useState(false);
+  const [savingMetaProspectIdSet, setSavingMetaProspectIdSet] = useState<Set<number>>(new Set());
   const [savingNoteProspectIdSet, setSavingNoteProspectIdSet] = useState<Set<number>>(new Set());
   const [loadingNoteProspectIdSet, setLoadingNoteProspectIdSet] = useState<Set<number>>(new Set());
   const [notesByProspectId, setNotesByProspectId] = useState<Record<number, TrackerNote[]>>({});
@@ -50,11 +68,16 @@ export default function ProspectTrackerPage() {
   const [modalNoteDraft, setModalNoteDraft] = useState('');
   const [editingProspect, setEditingProspect] = useState<Prospect | null>(null);
   const [pendingDeleteProspect, setPendingDeleteProspect] = useState<Prospect | null>(null);
-  const [pageSize] = useState(20);
+  const [pageSize] = useState(10);
   const [nextPageNum, setNextPageNum] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [sortBy] = useState('-created_at');
+  const [totalCount, setTotalCount] = useState(0);
+  const [sortState, setSortState] = useState<{ key: string; direction: SortDirection } | null>({
+    key: 'created_at',
+    direction: 'desc',
+  });
+  const [filters, setFilters] = useState<Record<string, string>>({});
   const sentinelRef = useRef<HTMLDivElement>(null);
   const addToast = useToastStore((state) => state.addToast);
 
@@ -108,7 +131,12 @@ export default function ProspectTrackerPage() {
     setEditingProspect(row);
   };
 
-  const loadProspects = async (pageNum: number = 1, isInitial: boolean = true) => {
+  const loadProspects = async (
+    pageNum: number = 1,
+    isInitial: boolean = true,
+    nextSort: { key: string; direction: SortDirection } | null = sortState,
+    nextFilters: Record<string, string> = filters
+  ) => {
     try {
       if (isInitial) {
         setLoading(true);
@@ -120,7 +148,11 @@ export default function ProspectTrackerPage() {
       const data = await fetchProspects({
         page: pageNum,
         pageSize: pageSize,
-        ordering: sortBy,
+        sort: toProspectSort(nextSort),
+        fullName: nextFilters.full_name,
+        recruiterName: nextFilters.recruited_by_name,
+        leaderName: nextFilters.leader_name,
+        search: nextFilters.search || nextFilters.notes,
       });
 
       if (isInitial) {
@@ -129,9 +161,8 @@ export default function ProspectTrackerPage() {
         setProspects((prev) => [...prev, ...data.results]);
       }
 
-      const totalLoaded = isInitial ? data.results.length : prospects.length + data.results.length;
-      const hasMoreResults = totalLoaded < (data.count || totalLoaded);
-      setHasMore(hasMoreResults);
+      setTotalCount(data.count || 0);
+      setHasMore(Boolean(data.next));
       setNextPageNum(pageNum + 1);
     } catch (err) {
       if (isInitial) {
@@ -416,6 +447,70 @@ export default function ProspectTrackerPage() {
     }
   };
 
+  const handleAddProductionSave = async (data: AddProductionFormData) => {
+    if (!addProductionFor) return;
+    try {
+      setSavingProduction(true);
+      const [pA, pB] = data.split.split('/').map((v) => parseFloat(v) || 0);
+      const base = parseFloat(data.targetPoints) || 0;
+
+      const getMultiplier = (): number => {
+        const MULTIPLIER_TABLE: Record<string, number> = {
+          'TRANSAMERICA|FFIUL II': 1.25,
+          'TRANSAMERICA|TERM LB - 10 YEARS': 1.10,
+          'TRANSAMERICA|TERM LB - 15 YEARS': 1.16,
+          'TRANSAMERICA|TERM LB - 20/25/30 YEARS': 1.26,
+          'TRANSAMERICA|FINAL EXPENSE': 1.10,
+          'NATIONWIDE|NEW HEIGHTS IUL ACCUMULATOR 2020': 1.09,
+          'NORTH AMERICAN|SECURE HORIZON - CLIENT AGE 0-70': 0.062888,
+          'NORTH AMERICAN|SECURE HORIZON - CLIENT AGE 71-75': 0.053496,
+          'NORTH AMERICAN|SECURE HORIZON - CLIENT AGE 76+': 0.040919,
+          'EVEREST|EVEREST': 1.0,
+        };
+        if (data.company === 'OTHER' || data.product === 'OTHER') {
+          const pct = parseFloat(data.multiplierPercent);
+          return isNaN(pct) ? 1 : pct;
+        }
+        return MULTIPLIER_TABLE[`${data.company}|${data.product}`] ?? 1;
+      };
+
+      const totalPoints = Math.round(base * getMultiplier() * 100) / 100;
+
+      await createProductionRecord({
+        prospect: addProductionFor.id,
+        client_name: data.client,
+        date_written: data.dateWritten || null,
+        closure_date: data.closureDate || null,
+        delivery: data.delivery,
+        status: data.status,
+        notes: data.notes,
+        trial_app: data.trialApp,
+        policy_company: data.company,
+        policy_number: data.policyNumber,
+        policy_product: data.product,
+        policy_other_product: data.otherProduct,
+        points_target: totalPoints,
+        agent_1: data.agent1Id,
+        agent_1_name: data.agent1Name,
+        agent_1_pct: pA,
+        agent_2: data.agentMode === 'split' ? data.agent2Id : null,
+        agent_2_name: data.agentMode === 'split' ? data.agent2Name : '',
+        agent_2_pct: pB,
+        split_mode: data.agentMode === 'split' ? 'split' : 'solo',
+      });
+
+      setAddProductionFor(null);
+      addToast({ type: 'success', message: 'Added to Production Tracker.' });
+    } catch (err) {
+      addToast({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to save production record.',
+      });
+    } finally {
+      setSavingProduction(false);
+    }
+  };
+
   const handleQuickActionLog = async (row: Prospect, actionLabel: string) => {
     try {
       setSavingCallLog(true);
@@ -435,6 +530,128 @@ export default function ProspectTrackerPage() {
   const handleDeleteProspect = (row: Prospect) => {
     setPendingDeleteProspect(row);
   };
+
+  const handleToggleProspectMeta = useCallback(
+    async (row: Prospect, field: 'top25' | 'hot', value: boolean) => {
+      setSavingMetaProspectIdSet((prev) => new Set(prev).add(row.id));
+
+      const previous = row.prospect_meta;
+      const nextMeta = {
+        notes: previous?.notes || '',
+        hot: field === 'hot' ? value : Boolean(previous?.hot),
+        top25: field === 'top25' ? value : Boolean(previous?.top25),
+        outcome: previous?.outcome || '',
+        mark: previous?.mark || 'default',
+        files: previous?.files || [],
+        source_date: previous?.source_date ?? null,
+      };
+
+      // Optimistic UI update while saving.
+      setProspects((prev) =>
+        prev.map((item) =>
+          item.id === row.id
+            ? {
+                ...item,
+                prospect_meta: {
+                  ...(item.prospect_meta || {}),
+                  ...nextMeta,
+                },
+              }
+            : item
+        )
+      );
+
+      try {
+        const updated = await updateProspectDetails(row.id, {
+          prospect_meta: nextMeta,
+        });
+        updateProspectInState(updated);
+      } catch (err) {
+        // Roll back optimistic change on failure.
+        setProspects((prev) =>
+          prev.map((item) =>
+            item.id === row.id
+              ? {
+                  ...item,
+                  prospect_meta: previous ?? null,
+                }
+              : item
+          )
+        );
+        addToast({
+          type: 'error',
+          message: err instanceof Error ? err.message : 'Failed to update prospect flags.',
+        });
+      } finally {
+        setSavingMetaProspectIdSet((prev) => {
+          const next = new Set(prev);
+          next.delete(row.id);
+          return next;
+        });
+      }
+    },
+    [addToast]
+  );
+
+  const handleChangeProspectOutcome = useCallback(
+    async (row: Prospect, outcome: 'Client' | 'Recruit' | 'Both') => {
+      setSavingMetaProspectIdSet((prev) => new Set(prev).add(row.id));
+
+      const previous = row.prospect_meta;
+      const nextMeta = {
+        notes: previous?.notes || '',
+        hot: Boolean(previous?.hot),
+        top25: Boolean(previous?.top25),
+        outcome,
+        mark: previous?.mark || 'default',
+        files: previous?.files || [],
+        source_date: previous?.source_date ?? null,
+      };
+
+      setProspects((prev) =>
+        prev.map((item) =>
+          item.id === row.id
+            ? {
+                ...item,
+                prospect_meta: {
+                  ...(item.prospect_meta || {}),
+                  ...nextMeta,
+                },
+              }
+            : item
+        )
+      );
+
+      try {
+        const updated = await updateProspectDetails(row.id, {
+          prospect_meta: nextMeta,
+        });
+        updateProspectInState(updated);
+      } catch (err) {
+        setProspects((prev) =>
+          prev.map((item) =>
+            item.id === row.id
+              ? {
+                  ...item,
+                  prospect_meta: previous ?? null,
+                }
+              : item
+          )
+        );
+        addToast({
+          type: 'error',
+          message: err instanceof Error ? err.message : 'Failed to update outcome.',
+        });
+      } finally {
+        setSavingMetaProspectIdSet((prev) => {
+          const next = new Set(prev);
+          next.delete(row.id);
+          return next;
+        });
+      }
+    },
+    [addToast]
+  );
 
   const confirmDeleteProspect = async () => {
     if (!pendingDeleteProspect) return;
@@ -541,6 +758,7 @@ export default function ProspectTrackerPage() {
         noteDraftByProspectId,
         focusedNoteInputId,
         savingNoteProspectIdSet,
+        savingMetaProspectIdSet,
         onNoteDraftChange: handleNoteDraftChange,
         onNoteFocus: setFocusedNoteInputId,
         onNoteBlur: () => setFocusedNoteInputId(null),
@@ -550,6 +768,8 @@ export default function ProspectTrackerPage() {
           setNotesOpenFor(row);
           setModalNoteDraft('');
         },
+        onToggleProspectMeta: handleToggleProspectMeta,
+        onChangeProspectOutcome: handleChangeProspectOutcome,
       }),
     [
       focusedNoteInputId,
@@ -558,8 +778,11 @@ export default function ProspectTrackerPage() {
       notesByProspectId,
       noteDraftByProspectId,
       savingNoteProspectIdSet,
+      savingMetaProspectIdSet,
       handleNoteDraftChange,
       ensureNotesLoaded,
+      handleToggleProspectMeta,
+      handleChangeProspectOutcome,
     ]
   );
 
@@ -574,8 +797,8 @@ export default function ProspectTrackerPage() {
   }, [notesByProspectId, notesOpenFor]);
 
   useEffect(() => {
-    loadProspects(1, true);
-  }, [sortBy]);
+    void loadProspects(1, true, sortState, filters);
+  }, [sortState, filters]);
 
   useEffect(() => {
     if (!sentinelRef.current) return;
@@ -583,7 +806,7 @@ export default function ProspectTrackerPage() {
     const observer = new IntersectionObserver(
       async (entries) => {
         if (entries[0].isIntersecting && hasMore && !loadingMore && !loading && prospects.length > 0) {
-          await loadProspects(nextPageNum, false);
+          await loadProspects(nextPageNum, false, sortState, filters);
         }
       },
       { threshold: 0.1 }
@@ -591,11 +814,7 @@ export default function ProspectTrackerPage() {
 
     observer.observe(sentinelRef.current);
     return () => observer.disconnect();
-  }, [hasMore, loadingMore, loading, nextPageNum, prospects.length]);
-
-  const totalCount = prospects.length;
-
-
+  }, [hasMore, loadingMore, loading, nextPageNum, prospects.length, sortState, filters]);
 
   if (loading) {
     return (
@@ -648,6 +867,10 @@ export default function ProspectTrackerPage() {
           tableId="prospect-tracker"
           emptyMessage="No prospects found. Add your first prospect to get started!"
           className="h-full"
+          serverSort={sortState}
+          onServerSortChange={setSortState}
+          serverFilters={filters}
+          onServerFilterChange={setFilters}
         />
       </div>
 
@@ -657,11 +880,11 @@ export default function ProspectTrackerPage() {
             <div className="text-sm text-white/60">Loading more prospects...</div>
           </div>
         )}
-        {!hasMore && prospects.length > 0 && (
+        {/* {!hasMore && prospects.length > 0 && (
           <div className="flex items-center justify-center py-4">
             <div className="text-sm text-white/60">No more prospects to load</div>
           </div>
-        )}
+        )} */}
       </div>
 
       <CallLogModal
@@ -675,7 +898,7 @@ export default function ProspectTrackerPage() {
         onAddAgencyCode={handleAddAgencyCode}
         onRequestTrainer={(prospect) => handleQuickActionLog(prospect, 'Requested trainer')}
         onAddAppointment={(prospect) => handleQuickActionLog(prospect, 'Added appointment')}
-        onAddProduction={(prospect) => handleQuickActionLog(prospect, 'Added production')}
+        onAddProduction={async (prospect) => { setAddProductionFor(prospect); }}
       />
 
       <AddAgencyCodeModal
@@ -683,6 +906,14 @@ export default function ProspectTrackerPage() {
         saving={savingCallLog}
         onClose={() => setAddAgencyCodeFor(null)}
         onSubmit={handleSubmitAddAgencyCode}
+      />
+
+      <AddProductionModal
+        open={Boolean(addProductionFor)}
+        saving={savingProduction}
+        prospect={addProductionFor}
+        onClose={() => setAddProductionFor(null)}
+        onSubmit={handleAddProductionSave}
       />
 
       <AddProspectModal

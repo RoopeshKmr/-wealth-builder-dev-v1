@@ -1,19 +1,47 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { Block, ErrorState, LoadingState, TrackerTable } from '@/shared/components';
 import { useToastStore } from '@/store';
 import { buildLicensingColumns } from '@/features/team/licensing-tracker/licensing-tracker-columns';
 import {
   fetchLicensingTracker,
+  type LicensingTrackerQuery,
   type LicensingTrackerRecord,
   updateLicensingTracker,
 } from '../services/licensing-tracker-service';
-import { fetchTrackerUsersMeta } from '@/features/team/services/tracker-user-meta-service';
 import {
   createTrackerNote,
   fetchTrackerNotesForUser,
   type TrackerNote,
 } from '@/features/team/services/tracker-notes-service';
 import { TrackerNotesModal } from '@/features/team/components/tracker-notes-modal';
+
+type SortDirection = 'asc' | 'desc';
+
+function toSortParam(sort: { key: string; direction: SortDirection } | null): string | undefined {
+  if (!sort) return undefined;
+  const keyMap: Record<string, string> = {
+    user_name: 'name',
+    recruiter: 'recruiter_name',
+    leader: 'leader_name',
+  };
+  const mapped = keyMap[sort.key] || sort.key;
+  return sort.direction === 'desc' ? `-${mapped}` : mapped;
+}
+
+function toBackendFilters(filters: Record<string, string>): Record<string, string> {
+  const keyMap: Record<string, string> = {
+    user_name: 'name',
+    recruiter: 'recruiter_name',
+    leader: 'leader_name',
+  };
+
+  return Object.entries(filters).reduce<Record<string, string>>((acc, [key, value]) => {
+    const normalized = value.trim();
+    if (!normalized) return acc;
+    acc[keyMap[key] || key] = normalized;
+    return acc;
+  }, {});
+}
 
 export default function LicensingTrackerPage() {
   const pageHeading = 'Licensing Tracker';
@@ -28,15 +56,29 @@ export default function LicensingTrackerPage() {
   const [savingNoteUserIdSet, setSavingNoteUserIdSet] = useState<Set<number>>(new Set());
   const [notesOpenFor, setNotesOpenFor] = useState<LicensingTrackerRecord | null>(null);
   const [modalNoteDraft, setModalNoteDraft] = useState('');
+
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [nextPageNum, setNextPageNum] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState(0);
+  const [sortState, setSortState] = useState<{ key: string; direction: SortDirection } | null>(null);
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const pageSize = 10;
   const addToast = useToastStore((state) => state.addToast);
 
-  const handleToggle = async (userId: number, field: keyof LicensingTrackerRecord, value: boolean) => {
+  const handlePatchField = async (
+    userId: number,
+    field: keyof LicensingTrackerRecord,
+    value: string | boolean | null
+  ) => {
     const savingKey = `${userId}:${String(field)}`;
     setSavingKeySet((prev) => new Set(prev).add(savingKey));
     try {
-      const updated = await updateLicensingTracker(userId, { [field]: value });
+      const updated = await updateLicensingTracker(userId, { [field]: value } as Partial<LicensingTrackerRecord>);
       setRows((prev) =>
         prev.map((row) => (row.user_id === userId ? { ...row, ...updated } : row))
       );
@@ -52,6 +94,10 @@ export default function LicensingTrackerPage() {
         return next;
       });
     }
+  };
+
+  const handleToggle = async (userId: number, field: keyof LicensingTrackerRecord, value: boolean) => {
+    await handlePatchField(userId, field, value);
   };
 
   const handleNoteDraftChange = (userId: number, value: string) => {
@@ -136,6 +182,7 @@ export default function LicensingTrackerPage() {
     () =>
       buildLicensingColumns({
         onToggle: handleToggle,
+        onPatch: handlePatchField,
         savingKeySet,
         notesByUserId,
         noteDraftByUserId,
@@ -154,42 +201,77 @@ export default function LicensingTrackerPage() {
     [savingKeySet, notesByUserId, noteDraftByUserId, focusedNoteInputId, savingNoteUserIdSet]
   );
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadRows = async () => {
+  const loadRows = useCallback(
+    async (
+      pageNum: number,
+      isInitial: boolean,
+      nextSort: { key: string; direction: SortDirection } | null,
+      nextFilters: Record<string, string>
+    ) => {
       try {
-        setLoading(true);
-        setError(null);
-        const data = await fetchLicensingTracker();
-        const metaByUserId = await fetchTrackerUsersMeta(data.map((row) => row.user_id));
-        if (isMounted) {
-          setRows(
-            data.map((row) => {
-              const meta = metaByUserId.get(row.user_id);
-              return {
-                ...row,
-                agency_code: meta?.agency_code ?? null,
-                invited_at: meta?.invited_at ?? null,
-                avatar_url: meta?.avatar_url ?? null,
-              };
-            })
-          );
+        if (isInitial) {
+          setLoading(true);
+          setError(null);
+        } else {
+          setLoadingMore(true);
+        }
+
+        const query: LicensingTrackerQuery = {
+          page: pageNum,
+          pageSize,
+          sort: toSortParam(nextSort),
+          filters: toBackendFilters(nextFilters),
+        };
+
+        const data = await fetchLicensingTracker(query);
+        const serialStart = (pageNum - 1) * pageSize;
+        const rowsWithSerial = data.results.map((row, index) => ({
+          ...row,
+          serial_no: serialStart + index + 1,
+        }));
+
+        setTotalCount(data.count || 0);
+        setHasMore(Boolean(data.next));
+        setNextPageNum(pageNum + 1);
+        if (isInitial) {
+          setRows(rowsWithSerial);
+        } else {
+          setRows((prev) => [...prev, ...rowsWithSerial]);
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load licensing tracker';
-        if (isMounted) setError(message);
+        if (isInitial) setError(message);
         addToast({ type: 'error', message: 'Failed to load licensing tracker.' });
       } finally {
-        if (isMounted) setLoading(false);
+        if (isInitial) {
+          setLoading(false);
+        } else {
+          setLoadingMore(false);
+        }
       }
-    };
+    },
+    [addToast]
+  );
 
-    loadRows();
-    return () => {
-      isMounted = false;
-    };
-  }, [addToast]);
+  useEffect(() => {
+    void loadRows(1, true, sortState, filters);
+  }, [loadRows, sortState, filters]);
+
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading && rows.length > 0) {
+          void loadRows(nextPageNum, false, sortState, filters);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [filters, hasMore, loadRows, loading, loadingMore, nextPageNum, rows.length, sortState]);
 
   const notesForOpenUser = useMemo(() => {
     if (!notesOpenFor) return [];
@@ -231,7 +313,7 @@ export default function LicensingTrackerPage() {
     <div className="flex h-screen flex-col p-6">
       <Block
         title={pageHeading}
-        description={`${pageDescription} • ${rows.length} total`}
+        description={`${pageDescription} • ${totalCount} total`}
         className="mb-6 flex-shrink-0"
       />
 
@@ -245,7 +327,24 @@ export default function LicensingTrackerPage() {
           tableId="licensing-tracker"
           emptyMessage="No licensing tracker records found."
           className="h-full"
+          serverSort={sortState}
+          onServerSortChange={setSortState}
+          serverFilters={filters}
+          onServerFilterChange={setFilters}
         />
+      </div>
+
+      <div ref={sentinelRef} className="mt-4 flex-shrink-0">
+        {loadingMore && (
+          <div className="flex items-center justify-center py-4">
+            <div className="text-sm text-white/60">Loading more licensing records...</div>
+          </div>
+        )}
+        {/* {!hasMore && rows.length > 0 && (
+          <div className="flex items-center justify-center py-4">
+            <div className="text-sm text-white/60">No more records to load</div>
+          </div>
+        )} */}
       </div>
 
       <TrackerNotesModal
@@ -255,7 +354,8 @@ export default function LicensingTrackerPage() {
         draft={modalNoteDraft}
         saving={Boolean(
           notesOpenFor &&
-            (savingNoteUserIdSet.has(notesOpenFor.user_id) || loadingNoteUserIdSet.has(notesOpenFor.user_id))
+            (savingNoteUserIdSet.has(notesOpenFor.user_id) ||
+              loadingNoteUserIdSet.has(notesOpenFor.user_id))
         )}
         onClose={() => setNotesOpenFor(null)}
         onDraftChange={setModalNoteDraft}

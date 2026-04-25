@@ -8,11 +8,14 @@ interface ProspectColumnOptions {
   noteDraftByProspectId: Record<number, string>;
   focusedNoteInputId: number | null;
   savingNoteProspectIdSet: Set<number>;
+  savingMetaProspectIdSet: Set<number>;
   onNoteDraftChange: (prospectId: number, value: string) => void;
   onNoteFocus: (prospectId: number) => void;
   onNoteBlur: () => void;
   onAddInlineNote: (row: Prospect) => Promise<void>;
   onOpenAllNotes: (row: Prospect) => void;
+  onToggleProspectMeta: (row: Prospect, field: 'top25' | 'hot', value: boolean) => void;
+  onChangeProspectOutcome: (row: Prospect, outcome: 'Client' | 'Recruit' | 'Both') => void;
 }
 
 function formatNoteDate(value: string): string {
@@ -91,7 +94,19 @@ export function buildProspectColumns(
       width: 90,
       align: 'center',
       sortable: true,
-      render: (row) => <span style={{ fontSize: '1.2em' }}>{row.prospect_meta?.top25 ? '⭐' : ''}</span>,
+      value: (row) => (row.prospect_meta?.top25 ? 'Yes' : 'No'),
+      render: (row) => (
+        <label className={`tracker-toggle-box ${row.prospect_meta?.top25 ? 'is-on' : 'is-off'}`}>
+          <input
+            className="tracker-checkbox-lg"
+            type="checkbox"
+            checked={Boolean(row.prospect_meta?.top25)}
+            disabled={options.savingMetaProspectIdSet.has(row.id)}
+            aria-label={`Top 25 for ${row.full_name || row.email}`}
+            onChange={(e) => options.onToggleProspectMeta(row, 'top25', e.target.checked)}
+          />
+        </label>
+      ),
     },
     {
       key: 'hot',
@@ -99,14 +114,47 @@ export function buildProspectColumns(
       width: 80,
       align: 'center',
       sortable: true,
-      render: (row) => <span style={{ fontSize: '1.2em' }}>{row.prospect_meta?.hot ? '🔥' : ''}</span>,
+      value: (row) => (row.prospect_meta?.hot ? 'Yes' : 'No'),
+      render: (row) => (
+        <label className={`tracker-toggle-box ${row.prospect_meta?.hot ? 'is-on' : 'is-off'}`}>
+          <input
+            className="tracker-checkbox-lg"
+            type="checkbox"
+            checked={Boolean(row.prospect_meta?.hot)}
+            disabled={options.savingMetaProspectIdSet.has(row.id)}
+            aria-label={`Hot lead for ${row.full_name || row.email}`}
+            onChange={(e) => options.onToggleProspectMeta(row, 'hot', e.target.checked)}
+          />
+        </label>
+      ),
     },
     {
       key: 'outcome',
       label: 'Outcome',
       width: 150,
       sortable: true,
-      render: (row) => row.prospect_meta?.outcome || '-',
+      value: (row) => row.prospect_meta?.outcome || '',
+      render: (row) => {
+        const current = row.prospect_meta?.outcome || 'Both';
+        return (
+          <select
+            className="h-8 w-full rounded border border-white/15 bg-white/5 px-2 text-xs text-white outline-none focus:border-amber-300/50"
+            value={current}
+            disabled={options.savingMetaProspectIdSet.has(row.id)}
+            onChange={(e) =>
+              options.onChangeProspectOutcome(
+                row,
+                (e.target.value as 'Client' | 'Recruit' | 'Both') || '-'
+              )
+            }
+          >
+            <option/>
+            <option value="Client">Client</option>
+            <option value="Recruit">Recruit</option>
+            <option value="Both">Both</option>
+          </select>
+        );
+      },
     },
     {
       key: 'profile',

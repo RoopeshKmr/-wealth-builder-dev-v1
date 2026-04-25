@@ -2,9 +2,12 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 
 export interface Tracker4x4Record {
   id: number;
+  serial_no?: number;
   user_id: number;
   user_name: string;
   user_email: string;
+  recruiter_name?: string | null;
+  leader_name?: string | null;
   agency_code?: string | null;
   invited_at?: string | null;
   avatar_url?: string | null;
@@ -40,6 +43,13 @@ interface PaginatedTrackerResponse<T> {
   results: T[];
 }
 
+export interface Tracker4x4Query {
+  page?: number;
+  pageSize?: number;
+  sort?: string;
+  filters?: Record<string, string>;
+}
+
 function getAuthHeaders(): HeadersInit {
   const token = localStorage.getItem('wb.authToken');
   if (!token) throw new Error('No authentication token found');
@@ -49,35 +59,40 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
-function resolveNextUrl(nextUrl: string): string {
-  if (nextUrl.startsWith('http://') || nextUrl.startsWith('https://')) {
-    return nextUrl;
-  }
-  return `${API_BASE_URL}${nextUrl}`;
-}
-
-export async function fetch4x4Tracker(): Promise<Tracker4x4Record[]> {
-  const headers = getAuthHeaders();
-  const records: Tracker4x4Record[] = [];
-  let nextUrl: string | null = `${API_BASE_URL}/api/tracker/trackers/4X4/?page_size=200`;
-  let pageSafety = 0;
-
-  while (nextUrl && pageSafety < 20) {
-    const response = await fetch(nextUrl, { headers });
-    if (!response.ok) throw new Error(`Failed to fetch 4x4 tracker: ${response.statusText}`);
-
-    const data = (await response.json()) as PaginatedTrackerResponse<Tracker4x4Record> | Tracker4x4Record[];
-    if (Array.isArray(data)) {
-      records.push(...data);
-      break;
-    }
-
-    records.push(...data.results);
-    nextUrl = data.next ? resolveNextUrl(data.next) : null;
-    pageSafety += 1;
+export async function fetch4x4Tracker(
+  query: Tracker4x4Query = {}
+): Promise<PaginatedTrackerResponse<Tracker4x4Record>> {
+  const params = new URLSearchParams();
+  params.set('page', String(query.page ?? 1));
+  params.set('page_size', String(query.pageSize ?? 10));
+  if (query.sort) {
+    params.set('sort', query.sort);
   }
 
-  return records;
+  if (query.filters) {
+    Object.entries(query.filters).forEach(([key, value]) => {
+      const normalized = value?.trim();
+      if (!normalized) return;
+      params.set(key, normalized);
+    });
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/tracker/trackers/4X4/?${params.toString()}`, {
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error(`Failed to fetch 4x4 tracker: ${response.statusText}`);
+
+  const data = (await response.json()) as PaginatedTrackerResponse<Tracker4x4Record> | Tracker4x4Record[];
+  if (Array.isArray(data)) {
+    return {
+      count: data.length,
+      next: null,
+      previous: null,
+      results: data,
+    };
+  }
+
+  return data;
 }
 
 export async function update4x4Tracker(

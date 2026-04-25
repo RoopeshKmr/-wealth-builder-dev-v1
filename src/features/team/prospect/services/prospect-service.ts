@@ -57,6 +57,7 @@ export interface ProspectsResponse {
 export interface ProspectQueryParams {
   page?: number;
   pageSize?: number;
+  sort?: string;
   ordering?: string;
   search?: string;
   fullName?: string;
@@ -90,15 +91,16 @@ export async function fetchProspects(query: ProspectQueryParams = {}): Promise<P
   const params = new URLSearchParams();
   appendIfPresent(params, 'page', query.page);
   appendIfPresent(params, 'page_size', query.pageSize);
+  appendIfPresent(params, 'sort', query.sort);
   appendIfPresent(params, 'ordering', query.ordering);
   appendIfPresent(params, 'search', query.search);
 
-  // Field filters aligned with backend django-filter keys.
-  appendIfPresent(params, 'full_name__icontains', query.fullName);
-  appendIfPresent(params, 'email__icontains', query.email);
-  appendIfPresent(params, 'phone__icontains', query.phone);
-  appendIfPresent(params, 'leader__full_name__icontains', query.leaderName);
-  appendIfPresent(params, 'recruited_by__full_name__icontains', query.recruiterName);
+  // Field filters aligned with backend UserFilter keys.
+  appendIfPresent(params, 'name', query.fullName);
+  appendIfPresent(params, 'email', query.email);
+  appendIfPresent(params, 'phone', query.phone);
+  appendIfPresent(params, 'leader_name', query.leaderName);
+  appendIfPresent(params, 'recruiter_name', query.recruiterName);
 
   const queryString = params.toString();
   const url = `${API_BASE_URL}/api/accounts/users/${queryString ? `?${queryString}` : ''}`;

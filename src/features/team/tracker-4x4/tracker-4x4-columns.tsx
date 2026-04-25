@@ -2,6 +2,7 @@ import type { TrackerTableColumn } from '@/shared/components';
 import { TrackerUserCell } from '@/features/team/components/tracker-user-cell';
 import { TrackerNotesCell } from '@/features/team/components/tracker-notes-cell';
 import type { TrackerNote } from '@/features/team/services/tracker-notes-service';
+import { DatePicker } from '@/shared/components/ui/date-picker';
 import type { Tracker4x4Record } from './services/tracker-4x4-service';
 
 function asYesNo(value: boolean): string {
@@ -10,6 +11,7 @@ function asYesNo(value: boolean): string {
 
 interface Build4x4ColumnsOptions {
   onToggle: (userId: number, field: keyof Tracker4x4Record, value: boolean) => void;
+  onPatch: (userId: number, field: keyof Tracker4x4Record, value: string | boolean | null) => void;
   savingKeySet: Set<string>;
   notesByUserId: Record<number, TrackerNote[]>;
   noteDraftByUserId: Record<number, string>;
@@ -43,11 +45,13 @@ function renderCheckbox(
   );
 }
 
-function formatDate(value: string | null): string {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString();
+function isSaving(
+  row: Tracker4x4Record,
+  field: keyof Tracker4x4Record,
+  options: Build4x4ColumnsOptions
+): boolean {
+  const savingKey = `${row.user_id}:${String(field)}`;
+  return options.savingKeySet.has(savingKey);
 }
 
 function formatCurrency(value: number | string | null): string {
@@ -64,9 +68,9 @@ export function build4x4Columns(options: Build4x4ColumnsOptions): TrackerTableCo
       label: '#',
       width: 40,
       align: 'center',
-      sortable: true,
-      value: (row) => row.id,
-      render: (row) => row.id,
+      sortable: false,
+      value: (row) => row.serial_no ?? row.id,
+      render: (row) => row.serial_no ?? row.id,
     },
     {
       key: 'user_name',
@@ -89,8 +93,8 @@ export function build4x4Columns(options: Build4x4ColumnsOptions): TrackerTableCo
       width: 200,
       sortable: true,
       searchable: true,
-      value: () => '',
-      render: () => '-',
+      value: (row) => row.recruiter_name || '',
+      render: (row) => row.recruiter_name || '-',
     },
     {
       key: 'leader',
@@ -98,8 +102,8 @@ export function build4x4Columns(options: Build4x4ColumnsOptions): TrackerTableCo
       width: 200,
       sortable: true,
       searchable: true,
-      value: () => '',
-      render: () => '-',
+      value: (row) => row.leader_name || '',
+      render: (row) => row.leader_name || '-',
     },
     {
       key: 'finish_1st_recruit',
@@ -221,7 +225,14 @@ export function build4x4Columns(options: Build4x4ColumnsOptions): TrackerTableCo
       sortable: true,
       searchable: true,
       value: (row) => row.pass_exam_date || '',
-      render: (row) => formatDate(row.pass_exam_date),
+      render: (row) => (
+        <DatePicker
+          value={row.pass_exam_date || ''}
+          onChange={(value) => options.onPatch(row.user_id, 'pass_exam_date', value || null)}
+          disabled={isSaving(row, 'pass_exam_date', options)}
+          className="h-8"
+        />
+      ),
     },
     {
       key: 'sircon_nipr_date',
@@ -231,7 +242,14 @@ export function build4x4Columns(options: Build4x4ColumnsOptions): TrackerTableCo
       sortable: true,
       searchable: true,
       value: (row) => row.sircon_nipr_date || '',
-      render: (row) => formatDate(row.sircon_nipr_date),
+      render: (row) => (
+        <DatePicker
+          value={row.sircon_nipr_date || ''}
+          onChange={(value) => options.onPatch(row.user_id, 'sircon_nipr_date', value || null)}
+          disabled={isSaving(row, 'sircon_nipr_date', options)}
+          className="h-8"
+        />
+      ),
     },
     {
       key: 'licensed',
