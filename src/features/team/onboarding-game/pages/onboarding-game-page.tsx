@@ -1,0 +1,681 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useAuth } from '@/features/auth/hooks/use-auth';
+import { UserAutocompleteDropdown, type UserAutocompleteOption } from '@/shared/components';
+import { TrackerProgressModal, type TrackerMetric } from '@/features/team/components/tracker-progress-modal';
+import { fetchOnboardingData, markIntroWatched, type OnboardingTrackerData } from '../services/onboarding-service';
+import '../styles/onboarding-game.css';
+
+/* ─────────────────────────────────────────────────────────────────────────
+   CONSTANTS
+   ──────────────────────────────────────────────────────────────────────── */
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
+
+const ROAD_SCENE_HEIGHT = 350;
+const VIDEO_DOCK_HEIGHT = 80;
+const CHECKBOX_HEIGHT = 120;
+const TOTAL_POSITIONS = 16;
+
+interface Module {
+  id: string;
+  title: string;
+  section: 'start' | 'philosophy' | 'followSystem' | 'buildOutlet';
+}
+
+const MODULES: Module[] = [
+  { id: 'm0',  title: 'Intro',                      section: 'start' },
+  { id: 'm1',  title: 'Multi Handed',               section: 'philosophy' },
+  { id: 'm2',  title: '10% / 3 Rules / 3 Goals',    section: 'philosophy' },
+  { id: 'm3',  title: 'Self Improvement',            section: 'philosophy' },
+  { id: 'm4',  title: 'Observe 4 Recruits',          section: 'followSystem' },
+  { id: 'm5',  title: 'Observe 4 Clients',           section: 'followSystem' },
+  { id: 'm6',  title: 'Get License',                 section: 'followSystem' },
+  { id: 'm7',  title: '1 Direct Registration',       section: 'followSystem' },
+  { id: 'm8',  title: '9 Recruits',                  section: 'buildOutlet' },
+  { id: 'm9',  title: '45,000 Personal Points',      section: 'buildOutlet' },
+  { id: 'm10', title: '3 Licenses',                  section: 'buildOutlet' },
+  { id: 'm11', title: '15 Registrations on Base',    section: 'buildOutlet' },
+];
+
+const MODULE_POSITIONS: Record<string, number> = {
+  m0: 0, m1: 2, m2: 3, m3: 4,
+  m4: 6, m5: 7, m6: 8, m7: 9,
+  m8: 11, m9: 12, m10: 13, m11: 14,
+};
+
+interface Section {
+  name: string;
+  startIndex: number;
+  endIndex: number;
+  nameClass?: string;
+  badge?: { image: string; type: string; className?: string };
+}
+
+const SECTIONS: Section[] = [
+  { name: '', startIndex: 0, endIndex: 0, badge: undefined },
+  {
+    name: 'BELIEVE PHILOSOPHY',
+    startIndex: 2, endIndex: 6,
+    nameClass: 'section-title-philosophy',
+    badge: { image: '/shield.png', type: 'shield' },
+  },
+  {
+    name: 'FOLLOW SYSTEM',
+    startIndex: 6, endIndex: 11,
+    badge: { image: '/shirt.png', type: 'shirt' },
+  },
+  {
+    name: 'BUILD OUTLET',
+    startIndex: 13, endIndex: 16,
+    badge: { image: '/watch.png', type: 'watch' },
+  },
+];
+
+const CAR_ANCHOR_INDEX = [0, 2, 5, 10];
+const BLOCKS = [['m0'], ['m1', 'm2', 'm3'], ['m4', 'm5', 'm6', 'm7'], ['m8', 'm9', 'm10', 'm11']];
+
+/* Videos (free tier) */
+const MODULE_VIDEOS: Record<string, Array<{ title: string; url: string }>> = {
+  m0: [{ title: 'Intro',           url: 'https://player.vimeo.com/video/1155086400?h=a96efe5109' }],
+  m1: [{ title: 'Multi Handed',    url: 'https://player.vimeo.com/video/1154890841?h=843c23fbda' }],
+  m2: [{ title: '10%, 3 Rules, 3 Goals', url: 'https://player.vimeo.com/video/1155146645?h=60577b9f8d' }],
+  m3: [{ title: 'Self Improvement', url: 'https://player.vimeo.com/video/1155094518?h=dc042bc51b' }],
+  m4: [{ title: 'System',          url: 'https://player.vimeo.com/video/1055385293?h=e177338da3' }],
+};
+
+/* Human-readable labels shown below traffic lights */
+const MODULE_DISPLAY_LABELS: Record<string, string | string[]> = {
+  m1: 'MULTI-HANDED',
+  m2: ['10% 3RULES', '3 GOALS'],
+  m3: 'SELF IMPROVEMENT',
+  m4: '3 DIRECTS',
+  m5: '3 CLIENTS',
+  m6: 'GET LICENSED',
+  m7: ['1 DIRECT', 'REGISTRATION'],
+  m8: '9 RECRUITS',
+  m9: ['45K PERSONAL', 'POINTS'],
+  m10: '3 LICENSES',
+  m11: ['15 REGISTRATION', 'BASE'],
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+   HELPERS
+   ──────────────────────────────────────────────────────────────────────── */
+
+function getIsComplete(moduleId: string, data: OnboardingTrackerData): boolean {
+  switch (moduleId) {
+    case 'm0':  return data.introWatched;
+    case 'm1':  return data.multiHanded;
+    case 'm2':  return data.tenThreeGoals;
+    case 'm3':  return data.selfImprovement;
+    case 'm4':  return data.observe4Recruits;
+    case 'm5':  return data.observe4Clients;
+    case 'm6':  return data.getLicense;
+    case 'm7':  return data.registrationConvention;
+    case 'm8':  return data.recruitTtl >= 9;
+    case 'm9':  return data.personalPoints >= 45000;
+    case 'm10': return data.licensesInTtl >= 3;
+    case 'm11': return data.registrationsBase >= 15;
+    default:    return false;
+  }
+}
+
+function computeUnlockedSections(data: OnboardingTrackerData): Set<string> {
+  const unlocked = new Set<string>(['start']);
+  // philosophy unlocks after intro
+  if (data.introWatched) unlocked.add('philosophy');
+  // followSystem unlocks after all philosophy done
+  if (data.multiHanded && data.tenThreeGoals && data.selfImprovement) unlocked.add('followSystem');
+  // buildOutlet unlocks after all followSystem done
+  if (data.observe4Recruits && data.observe4Clients && data.getLicense && data.registrationConvention)
+    unlocked.add('buildOutlet');
+  return unlocked;
+}
+
+function computeCarIndex(
+  _unlockedSections: Set<string>,
+  blockStates: boolean[],
+): number {
+  // blockStates[i] = true if every module in BLOCKS[i] is complete
+  let idx = 0;
+  for (let i = 0; i < blockStates.length; i++) {
+    if (blockStates[i]) idx = i + 1;
+  }
+  return clamp(idx, 0, CAR_ANCHOR_INDEX.length - 1);
+}
+
+function calculateCellWidth() {
+  const available = Math.max(window.innerWidth - 120, 960);
+  return clamp(Math.floor(available / TOTAL_POSITIONS), 56, 90);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   VIDEO MODAL
+   ──────────────────────────────────────────────────────────────────────── */
+
+interface VideoModalProps {
+  video: { title: string; url: string };
+  onComplete: () => void;
+  onClose: () => void;
+  buttonText: string;
+}
+
+function VideoModal({ video, onComplete, onClose, buttonText }: VideoModalProps) {
+  const [canComplete, setCanComplete] = useState(false);
+
+  useEffect(() => {
+    // Allow completing after 2 s — same as old site
+    const t = setTimeout(() => setCanComplete(true), 2000);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <div className="og-video-modal-overlay" onClick={onClose}>
+      <div className="og-video-modal" onClick={(e) => e.stopPropagation()}>
+        <button className="og-video-close" onClick={onClose}>✕</button>
+        <h2>{video.title}</h2>
+
+        <div className="og-video-frame-wrap">
+          <iframe
+            src={video.url}
+            title={video.title}
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+
+        <div className="og-video-watch-bar">
+          <div className="og-video-watch-fill" />
+        </div>
+
+        <button
+          className="og-video-complete-btn"
+          onClick={onComplete}
+          disabled={!canComplete}
+        >
+          {buttonText}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   MAIN PAGE
+   ──────────────────────────────────────────────────────────────────────── */
+
+const EMPTY_DATA: OnboardingTrackerData = {
+  userId: 0, userName: '', userEmail: '',
+  introWatched: false, multiHanded: false, tenThreeGoals: false,
+  selfImprovement: false, observe4Recruits: false, observe4Clients: false,
+  getLicense: false, registrationConvention: false,
+  recruitTtl: 0, personalPoints: 0, licensesInTtl: 0, registrationsBase: 0,
+};
+
+export default function OnboardingGamePage() {
+  const { user } = useAuth();
+
+  /* ── User selection (leader/admin can pick any user) ── */
+  const [selectedUser, setSelectedUser] = useState<UserAutocompleteOption | null>(null);
+
+  /* ── Data ── */
+  const [trackerData, setTrackerData] = useState<OnboardingTrackerData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  /* ── Video modal ── */
+  const [activeModuleId, setActiveModuleId] = useState<string | null>(null);
+
+  /* ── Tracker progress modal ── */
+  const [trackerModal, setTrackerModal] = useState<{
+    open: boolean;
+    metric: TrackerMetric;
+    current: number;
+    target: number;
+  }>({ open: false, metric: 'recruits', current: 0, target: 9 });
+
+  /* ── Cell width (responsive) ── */
+  const [cellWidth, setCellWidth] = useState(calculateCellWidth);
+
+  const loggedInUserId = useMemo(() => {
+    const asNumber = Number(user?.id);
+    return Number.isFinite(asNumber) && asNumber > 0 ? asNumber : null;
+  }, [user?.id]);
+
+  const activeUserId = selectedUser?.id ?? loggedInUserId;
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const handle = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => setCellWidth(calculateCellWidth()), 100);
+    };
+    window.addEventListener('resize', handle);
+    return () => { window.removeEventListener('resize', handle); clearTimeout(timer); };
+  }, []);
+
+  /* ── Fetch data when user changes ── */
+  const loadData = useCallback(async (userId: number | null) => {
+    if (!userId) {
+      setTrackerData(EMPTY_DATA);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchOnboardingData(userId);
+      setTrackerData(data);
+    } catch (e) {
+      setError((e as Error).message);
+      setTrackerData(EMPTY_DATA);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData(activeUserId);
+  }, [activeUserId, loadData]);
+
+  /* ── Derived state ── */
+  const data = trackerData ?? EMPTY_DATA;
+  const unlockedSections = useMemo(() => computeUnlockedSections(data), [data]);
+
+  const moduleStates = useMemo(() => {
+    const result: Record<string, { isComplete: boolean; isUnlocked: boolean }> = {};
+    MODULES.forEach((m) => {
+      result[m.id] = {
+        isComplete: getIsComplete(m.id, data),
+        isUnlocked: unlockedSections.has(m.section),
+      };
+    });
+    return result;
+  }, [data, unlockedSections]);
+
+  const completedCount = useMemo(
+    () => MODULES.filter((m) => moduleStates[m.id]?.isComplete).length,
+    [moduleStates],
+  );
+
+  const blockStates = useMemo(
+    () => BLOCKS.map((block) => block.every((id) => moduleStates[id]?.isComplete)),
+    [moduleStates],
+  );
+
+  const carIndex = useMemo(
+    () => computeCarIndex(unlockedSections, blockStates),
+    [unlockedSections, blockStates],
+  );
+
+  /* ── Layout math ── */
+  const leftMargin = useMemo(() => clamp(Math.round(cellWidth * 0.9), 40, 90), [cellWidth]);
+  const getPos = useCallback((idx: number) => leftMargin + idx * cellWidth, [leftMargin, cellWidth]);
+  const trackW = TOTAL_POSITIONS * cellWidth + leftMargin * 2;
+  const trafficRowTop = Math.max(90, Math.round(ROAD_SCENE_HEIGHT * 0.34));
+  const carTop = Math.max(trafficRowTop + 120, Math.round(ROAD_SCENE_HEIGHT * 0.74));
+  const carLeft = useMemo(() => {
+    const anchorIdx = CAR_ANCHOR_INDEX[carIndex];
+    const base = leftMargin + anchorIdx * cellWidth;
+    const offset = carIndex === 1 ? Math.round(cellWidth * 0.2) + 25 : 0;
+    return base - offset;
+  }, [carIndex, cellWidth, leftMargin]);
+
+  const progressPct = (completedCount / MODULES.length) * 100;
+
+  /* ── Video handling ── */
+  const handleVideoClick = (moduleId: string) => {
+    const state = moduleStates[moduleId];
+    if (!state?.isUnlocked) return;
+    if (moduleId === 'm4' && !(moduleStates['m1']?.isComplete && moduleStates['m2']?.isComplete && moduleStates['m3']?.isComplete)) {
+      return; // prerequisites not met
+    }
+    setActiveModuleId(moduleId);
+  };
+
+  const handleVideoComplete = async () => {
+    if (!activeModuleId) return;
+    setActiveModuleId(null);
+    // Only intro (m0) is tracked on backend
+    if (activeModuleId === 'm0' && data.userId) {
+      try {
+        await markIntroWatched(data.userId);
+        // Refresh data
+        await loadData(activeUserId);
+      } catch (e) {
+        console.error('Failed to mark intro watched', e);
+      }
+    }
+  };
+
+  const openTrackerModal = (metric: TrackerMetric, current: number, target: number) => {
+    setTrackerModal({ open: true, metric, current, target });
+  };
+
+  /* ── Display name ── */
+  const displayName =
+    selectedUser?.label ||
+    data.userName ||
+    (user ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email : '') ||
+    'AGENT NAME';
+
+  /* ─────────────────── RENDER ─────────────────── */
+  return (
+    <div className="og-root">
+      {/* ── Control bar ─────────────────────────────── */}
+      <div className="og-control-bar">
+        <div className="og-brand">🏆 Onboarding Road</div>
+
+        <div className="og-user-picker">
+          <UserAutocompleteDropdown
+            placeholder="Search user…"
+            selectedId={selectedUser?.id ?? null}
+            selectedLabel={selectedUser?.label}
+            onSelect={(opt) => setSelectedUser(opt)}
+            fetchFromApi
+          />
+        </div>
+
+        <div className="og-progress-wrap">
+          <div className="og-progress-bar" style={{ width: `${progressPct}%` }} />
+          <span className="og-progress-label">
+            {completedCount}/{MODULES.length} Complete
+          </span>
+        </div>
+      </div>
+
+      {/* ── Video modal ──────────────────────────────── */}
+      {activeModuleId && MODULE_VIDEOS[activeModuleId] && (
+        <VideoModal
+          video={MODULE_VIDEOS[activeModuleId][0]}
+          onComplete={handleVideoComplete}
+          onClose={() => setActiveModuleId(null)}
+          buttonText={activeModuleId === 'm0' ? 'Complete Intro' : 'Done'}
+        />
+      )}
+
+      {/* ── Tracker progress modal ───────────────────── */}
+      <TrackerProgressModal
+        open={trackerModal.open}
+        onClose={() => setTrackerModal((s) => ({ ...s, open: false }))}
+        metric={trackerModal.metric}
+        current={trackerModal.current}
+        target={trackerModal.target}
+        userName={displayName}
+      />
+
+      {/* ── Scrollable area ──────────────────────────── */}
+      <div className="og-content">
+        {loading && <div className="og-loading">Loading progress…</div>}
+        {error && <div className="og-loading" style={{ color: '#ef4444' }}>Error: {error}</div>}
+
+        {/* ── ROAD SCENE ─────────────────────────────── */}
+        <div className="og-road-wrap">
+          <div
+            className="og-road"
+            style={{
+              height: ROAD_SCENE_HEIGHT,
+              backgroundImage: "url('/road.png')",
+              width: trackW,
+              minWidth: trackW,
+            }}
+          >
+            {/* Section labels + badges */}
+            {SECTIONS.map((section) => {
+              if (!section.name) return null;
+              const center = (section.startIndex + section.endIndex) / 2;
+              return (
+                <div
+                  key={section.name}
+                  className="og-section-header"
+                  style={{ left: getPos(center) }}
+                >
+                  <div className="og-section-title">
+                    {section.name.split(' ').map((w, i) => <div key={i}>{w}</div>)}
+                  </div>
+                  {section.badge && (
+                    <div className="og-section-badge">
+                      <img src={section.badge.image} alt={section.name} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* SMD badge at end */}
+            <div className="og-smd-badge" style={{ left: getPos(15.5) }}>
+              <div className="og-smd-pill">
+                <img src="/smd100k.png" alt="SMD 100k" />
+              </div>
+            </div>
+
+            {/* Traffic lights (m1–m11) */}
+            <div className="og-traffic-row" style={{ top: trafficRowTop }}>
+              {MODULES.filter((m) => m.id !== 'm0').map((module) => {
+                const pos = MODULE_POSITIONS[module.id];
+                const state = moduleStates[module.id];
+                const label = MODULE_DISPLAY_LABELS[module.id];
+
+                return (
+                  <div
+                    key={module.id}
+                    className="og-traffic-item"
+                    style={{ left: getPos(pos) }}
+                    title={
+                      !state?.isUnlocked
+                        ? 'Complete previous section to unlock'
+                        : state.isComplete
+                        ? 'Completed ✓'
+                        : 'In progress'
+                    }
+                  >
+                    {state?.isUnlocked && (
+                      <div className="og-module-label">
+                        {Array.isArray(label)
+                          ? label.map((line, i) => <span key={i} style={{ display: 'block' }}>{line}</span>)
+                          : label || module.title.toUpperCase()}
+                      </div>
+                    )}
+                    <img
+                      src={state?.isComplete ? '/traffic-light-green.png' : '/traffic-light-red.png'}
+                      alt={module.title}
+                      className="og-traffic-img"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Car */}
+            <div className="og-car" style={{ left: carLeft, top: carTop }}>
+              <img src="/car.png" alt="Progress car" />
+            </div>
+          </div>
+        </div>
+
+        {/* ── VIDEO SECTION ──────────────────────────── */}
+        <div className="og-video-section">
+          <div
+            className="og-video-dock"
+            style={{ width: trackW, height: VIDEO_DOCK_HEIGHT }}
+          >
+            {/* START label */}
+            <div
+              className="og-video-start"
+              style={{ left: getPos(MODULE_POSITIONS.m0) }}
+            >
+              <span className="og-video-start-title">START</span>
+              <img src="/start.png" alt="Start" className="og-video-start-img" />
+            </div>
+
+            {/* Video tiles */}
+            {MODULES.map((module) => {
+              const videos = MODULE_VIDEOS[module.id];
+              if (!videos) return null;
+
+              const pos = MODULE_POSITIONS[module.id] !== 0 ? MODULE_POSITIONS[module.id] : 1;
+              const state = moduleStates[module.id];
+              if (!unlockedSections.has(module.section)) return null;
+
+              const prereqOk = module.id !== 'm4' || (
+                moduleStates['m1']?.isComplete &&
+                moduleStates['m2']?.isComplete &&
+                moduleStates['m3']?.isComplete
+              );
+              if (!prereqOk) return null;
+
+              const isIntroComplete = module.id === 'm0' ? state?.isComplete : false;
+
+              return (
+                <div
+                  key={module.id}
+                  className="og-video-col"
+                  style={{ left: getPos(pos) }}
+                >
+                  {videos.map((_, vIdx) => {
+                    const canPlay = !!state?.isUnlocked;
+                    const isDone = module.id === 'm0' ? state?.isComplete : false;
+
+                    return (
+                      <button
+                        key={vIdx}
+                        className={[
+                          'og-video-tile',
+                          !canPlay ? 'locked' : '',
+                          isDone ? 'done' : '',
+                          module.id === 'm0' && !isIntroComplete ? 'og-intro-pulse' : '',
+                        ].filter(Boolean).join(' ')}
+                        onClick={() => handleVideoClick(module.id)}
+                        disabled={!canPlay}
+                        aria-label={`${module.title} video`}
+                      >
+                        <span className="og-video-play">{isDone ? '✓' : '▶'}</span>
+                        <span className="og-video-lbl">video</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── CHECKBOX / PROGRESS SECTION ────────────── */}
+        <div className="og-checkbox-section">
+          <div
+            className="og-checkbox-content"
+            style={{ width: trackW, height: CHECKBOX_HEIGHT }}
+          >
+            <div className="og-agent-name">{displayName}</div>
+
+            {/* Philosophy checkboxes (m1–m3) */}
+            {(['m1', 'm2', 'm3'] as const).map((id) => {
+              const state = moduleStates[id];
+              if (!state?.isUnlocked) return null;
+              const label = MODULE_DISPLAY_LABELS[id];
+              return (
+                <div
+                  key={id}
+                  className="og-item"
+                  style={{ left: getPos(MODULE_POSITIONS[id]) }}
+                >
+                  <div className="og-item-label">
+                    {Array.isArray(label)
+                      ? label.map((line, i) => <span key={i} style={{ display: 'block' }}>{line}</span>)
+                      : label}
+                  </div>
+                  <input
+                    type="checkbox"
+                    className="og-cb"
+                    checked={state.isComplete}
+                    readOnly
+                    disabled
+                  />
+                </div>
+              );
+            })}
+
+            {/* Follow System checkboxes (m4–m7) */}
+            {(['m4', 'm5', 'm6', 'm7'] as const).map((id) => {
+              const state = moduleStates[id];
+              if (!state?.isUnlocked) return null;
+              const label = MODULE_DISPLAY_LABELS[id];
+              const isMulti = id === 'm4' || id === 'm5';
+
+              return (
+                <div
+                  key={id}
+                  className="og-item"
+                  style={{ left: getPos(MODULE_POSITIONS[id]) }}
+                >
+                  <div className="og-item-label">
+                    {Array.isArray(label)
+                      ? label.map((line, i) => <span key={i} style={{ display: 'block' }}>{line}</span>)
+                      : label}
+                  </div>
+                  {isMulti ? (
+                    <div className="og-checkbox-col">
+                      {[0, 1, 2].map((i) => (
+                        <input key={i} type="checkbox" className="og-cb" checked={state.isComplete} readOnly disabled />
+                      ))}
+                    </div>
+                  ) : (
+                    <input type="checkbox" className="og-cb" checked={state.isComplete} readOnly disabled />
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Rolling 3 months — m8/m9/m10/m11 */}
+            {unlockedSections.has('buildOutlet') && (
+              <>
+                <div
+                  className="og-rolling-header"
+                  style={{
+                    left: (getPos(MODULE_POSITIONS['m9']) + getPos(MODULE_POSITIONS['m10'])) / 2,
+                  }}
+                >
+                  ROLLING 3 MONTHS
+                </div>
+
+                {(
+                  [
+                    { id: 'm8',  label: MODULE_DISPLAY_LABELS['m8'],  metric: 'recruits' as TrackerMetric,      current: data.recruitTtl,      target: 9 },
+                    { id: 'm9',  label: MODULE_DISPLAY_LABELS['m9'],  metric: 'points' as TrackerMetric,        current: data.personalPoints,  target: 45000 },
+                    { id: 'm10', label: MODULE_DISPLAY_LABELS['m10'], metric: 'licenses' as TrackerMetric,      current: data.licensesInTtl,   target: 3 },
+                    { id: 'm11', label: MODULE_DISPLAY_LABELS['m11'], metric: 'registrations' as TrackerMetric, current: data.registrationsBase, target: 15 },
+                  ] as const
+                ).map((item) => {
+                  const isDone = item.current >= item.target;
+                  return (
+                    <div
+                      key={item.id}
+                      className="og-item"
+                      style={{ left: getPos(MODULE_POSITIONS[item.id]) }}
+                    >
+                      <div className="og-item-label">
+                        {Array.isArray(item.label)
+                          ? item.label.map((line, i) => <span key={i} style={{ display: 'block' }}>{line}</span>)
+                          : item.label}
+                      </div>
+                      <div className="og-value-wrap">
+                        <button
+                          className={`og-value-btn${isDone ? ' done' : ''}`}
+                          onClick={() => openTrackerModal(item.metric, item.current, item.target)}
+                          title={`Click to view ${item.metric} details`}
+                        >
+                          {item.current.toLocaleString()}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

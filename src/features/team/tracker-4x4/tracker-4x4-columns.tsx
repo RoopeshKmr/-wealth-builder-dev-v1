@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { TrackerTableColumn } from '@/shared/components';
 import { TrackerUserCell } from '@/features/team/components/tracker-user-cell';
 import { TrackerNotesCell } from '@/features/team/components/tracker-notes-cell';
@@ -11,7 +12,7 @@ function asYesNo(value: boolean): string {
 
 interface Build4x4ColumnsOptions {
   onToggle: (userId: number, field: keyof Tracker4x4Record, value: boolean) => void;
-  onPatch: (userId: number, field: keyof Tracker4x4Record, value: string | boolean | null) => void;
+  onPatch: (userId: number, field: keyof Tracker4x4Record, value: number | string | boolean | null) => void;
   savingKeySet: Set<string>;
   notesByUserId: Record<number, TrackerNote[]>;
   noteDraftByUserId: Record<number, string>;
@@ -24,22 +25,92 @@ interface Build4x4ColumnsOptions {
   onOpenAllNotes: (row: Tracker4x4Record) => void;
 }
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function startOfDay(date: Date): Date {
+  const normalized = new Date(date);
+  normalized.setHours(0, 0, 0, 0);
+  return normalized;
+}
+
+function getCountdownFromAma(row: Tracker4x4Record): {
+  hasAma: boolean;
+  daysLeft: number | null;
+  endDateISO: string | null;
+  label: string;
+} {
+  const amaRaw = (row as unknown as Record<string, unknown>).ama_date
+    || (row as unknown as Record<string, unknown>).amaDate
+    || (row as unknown as Record<string, unknown>).date;
+  const amaIso = typeof amaRaw === 'string' ? amaRaw : null;
+
+  if (!amaIso) {
+    return { hasAma: false, daysLeft: null, endDateISO: null, label: '0d' };
+  }
+
+  const today = startOfDay(new Date());
+  const amaDate = startOfDay(new Date(amaIso));
+
+  if (Number.isNaN(amaDate.getTime())) {
+    return { hasAma: false, daysLeft: null, endDateISO: null, label: '0d' };
+  }
+
+  const endDate = addDays(amaDate, 30);
+  const diffMs = endDate.getTime() - today.getTime();
+  const daysLeft = Math.ceil(diffMs / MS_PER_DAY);
+
+  return {
+    hasAma: true,
+    daysLeft,
+    endDateISO: endDate.toISOString(),
+    label: `${daysLeft > 0 ? daysLeft : 0}d`,
+  };
+}
+
 function renderCheckbox(
   row: Tracker4x4Record,
   field: keyof Tracker4x4Record,
-  options: Build4x4ColumnsOptions
+  options: Build4x4ColumnsOptions,
+  config?: {
+    displayChecked?: boolean;
+    onChangeChecked?: (checked: boolean) => void;
+  }
 ) {
   const savingKey = `${row.user_id}:${String(field)}`;
-  const checked = Boolean(row[field]);
+  const checked = config?.displayChecked ?? Boolean(row[field]);
+  const cd = getCountdownFromAma(row);
+  let pillClass = 'count-pill';
+  if (cd.hasAma && cd.daysLeft !== null) {
+    if (cd.daysLeft <= 0) pillClass += ' due';
+    else if (cd.daysLeft <= 10) pillClass += ' warn';
+  }
+  const endDateTooltip = cd.endDateISO
+    ? `30-day window ends: ${new Date(cd.endDateISO).toLocaleDateString()}`
+    : 'Missing AMA date';
+
   return (
     <label className={`tracker-toggle-box ${checked ? 'is-on' : 'is-off'}`}>
+      {true || cd.hasAma && !checked ? (
+        <span className={pillClass} title={endDateTooltip}>
+          {cd.label}
+        </span>
+      ) : null}
       <input
         className="tracker-checkbox-lg"
         type="checkbox"
         checked={checked}
         disabled={options.savingKeySet.has(savingKey)}
         aria-label={checked ? 'Checked' : 'Unchecked'}
-        onChange={(e) => options.onToggle(row.user_id, field, e.target.checked)}
+        onChange={(e) => {
+          options.onToggle(row.user_id, field, e.target.checked);
+          config?.onChangeChecked?.(e.target.checked);
+        }}
       />
     </label>
   );
@@ -54,11 +125,119 @@ function isSaving(
   return options.savingKeySet.has(savingKey);
 }
 
-function formatCurrency(value: number | string | null): string {
-  if (value === null || value === undefined || value === '') return '-';
-  const parsed = Number(value);
-  if (Number.isNaN(parsed)) return String(value);
-  return parsed.toLocaleString(undefined, { maximumFractionDigits: 2 });
+type SavingsToggleField =
+  | 'personal_savings'
+  | 'finish_2nd_savings'
+  | 'finish_3rd_savings'
+  | 'finish_4th_savings';
+
+type SavingsAmountField =
+  | 'personal_savings_amount'
+  | 'finish_2nd_savings_amount'
+  | 'finish_3rd_savings_amount'
+  | 'finish_4th_savings_amount';
+
+function SavingsAmountCell({
+  row,
+  savingsField,
+  amountField,
+  options,
+}: {
+  row: Tracker4x4Record;
+  savingsField: SavingsToggleField;
+  amountField: SavingsAmountField;
+  options: Build4x4ColumnsOptions;
+}) {
+  const currentAmount = row[amountField];
+  const checked = Boolean(row[savingsField]);
+  const saving = isSaving(row, savingsField, options) || isSaving(row, amountField, options);
+  const [amountInput, setAmountInput] = useState(currentAmount == null ? '' : String(currentAmount));
+  const [isEditingAmount, setIsEditingAmount] = useState(false);
+
+  const normalizedAmount = Number(currentAmount);
+  const hasPersistedAmount =
+    currentAmount !== null
+    && currentAmount !== undefined
+    && currentAmount !== ''
+    && Number.isFinite(normalizedAmount)
+    && normalizedAmount > 0;
+  const showAmountInput = hasPersistedAmount || isEditingAmount;
+
+  useEffect(() => {
+    setAmountInput(currentAmount == null ? '' : String(currentAmount));
+  }, [currentAmount]);
+
+  useEffect(() => {
+    if (hasPersistedAmount) {
+      setIsEditingAmount(false);
+    }
+  }, [hasPersistedAmount]);
+
+  const saveAmount = () => {
+    const trimmed = amountInput.trim();
+    if (!trimmed) {
+      options.onPatch(row.user_id, amountField, null);
+      if (checked) {
+        options.onToggle(row.user_id, savingsField, false);
+      }
+      setIsEditingAmount(false);
+      return;
+    }
+
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed)) {
+      setAmountInput(currentAmount == null ? '' : String(currentAmount));
+      return;
+    }
+
+    options.onPatch(row.user_id, amountField, parsed);
+    if (!checked) {
+      options.onToggle(row.user_id, savingsField, true);
+    }
+  };
+
+  return (
+    <div
+      className={`tracker-toggle-box ${showAmountInput ? 'is-on' : 'is-off'} ${saving ? 'cursor-wait opacity-75' : ''}`}
+      onClick={() => {
+        if (!showAmountInput) return;
+        if (saving) return;
+        options.onToggle(row.user_id, savingsField, false);
+        setIsEditingAmount(false);
+      }}
+    >
+      {showAmountInput ? (
+        <input
+          className="h-7 w-24 rounded border border-white/25 bg-transparent px-2 text-center text-xs text-white placeholder-white/60"
+          type="number"
+          min={0}
+          step="0.01"
+          value={amountInput}
+          disabled={saving}
+          placeholder="Amount"
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => setAmountInput(e.target.value)}
+          onBlur={saveAmount}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              (e.currentTarget as HTMLInputElement).blur();
+            }
+            if (e.key === 'Escape') {
+              setAmountInput(currentAmount == null ? '' : String(currentAmount));
+              (e.currentTarget as HTMLInputElement).blur();
+            }
+          }}
+        />
+      ) : (
+        renderCheckbox(row, savingsField, options, {
+          displayChecked: false,
+          onChangeChecked: (nextChecked) => {
+            setIsEditingAmount(nextChecked);
+          },
+        })
+      )}
+    </div>
+  );
 }
 
 export function build4x4Columns(options: Build4x4ColumnsOptions): TrackerTableColumn<Tracker4x4Record>[] {
@@ -123,15 +302,14 @@ export function build4x4Columns(options: Build4x4ColumnsOptions): TrackerTableCo
       sortable: true,
       searchable: true,
       value: (row) => `${asYesNo(row.personal_savings)} ${row.personal_savings_amount ?? ''}`,
-      render: (row) =>
-        row.personal_savings
-          ? (
-            <div className="flex items-center justify-center gap-2">
-              {renderCheckbox(row, 'personal_savings', options)}
-              <span>{formatCurrency(row.personal_savings_amount)}</span>
-            </div>
-          )
-          : renderCheckbox(row, 'personal_savings', options),
+      render: (row) => (
+        <SavingsAmountCell
+          row={row}
+          savingsField="personal_savings"
+          amountField="personal_savings_amount"
+          options={options}
+        />
+      ),
     },
     {
       key: 'big_event',
@@ -171,15 +349,14 @@ export function build4x4Columns(options: Build4x4ColumnsOptions): TrackerTableCo
       sortable: true,
       searchable: true,
       value: (row) => `${asYesNo(row.finish_2nd_savings)} ${row.finish_2nd_savings_amount ?? ''}`,
-      render: (row) =>
-        row.finish_2nd_savings
-          ? (
-            <div className="flex items-center justify-center gap-2">
-              {renderCheckbox(row, 'finish_2nd_savings', options)}
-              <span>{formatCurrency(row.finish_2nd_savings_amount)}</span>
-            </div>
-          )
-          : renderCheckbox(row, 'finish_2nd_savings', options),
+      render: (row) => (
+        <SavingsAmountCell
+          row={row}
+          savingsField="finish_2nd_savings"
+          amountField="finish_2nd_savings_amount"
+          options={options}
+        />
+      ),
     },
     {
       key: 'finish_3rd_savings',
@@ -189,15 +366,14 @@ export function build4x4Columns(options: Build4x4ColumnsOptions): TrackerTableCo
       sortable: true,
       searchable: true,
       value: (row) => `${asYesNo(row.finish_3rd_savings)} ${row.finish_3rd_savings_amount ?? ''}`,
-      render: (row) =>
-        row.finish_3rd_savings
-          ? (
-            <div className="flex items-center justify-center gap-2">
-              {renderCheckbox(row, 'finish_3rd_savings', options)}
-              <span>{formatCurrency(row.finish_3rd_savings_amount)}</span>
-            </div>
-          )
-          : renderCheckbox(row, 'finish_3rd_savings', options),
+      render: (row) => (
+        <SavingsAmountCell
+          row={row}
+          savingsField="finish_3rd_savings"
+          amountField="finish_3rd_savings_amount"
+          options={options}
+        />
+      ),
     },
     {
       key: 'finish_4th_savings',
@@ -207,15 +383,14 @@ export function build4x4Columns(options: Build4x4ColumnsOptions): TrackerTableCo
       sortable: true,
       searchable: true,
       value: (row) => `${asYesNo(row.finish_4th_savings)} ${row.finish_4th_savings_amount ?? ''}`,
-      render: (row) =>
-        row.finish_4th_savings
-          ? (
-            <div className="flex items-center justify-center gap-2">
-              {renderCheckbox(row, 'finish_4th_savings', options)}
-              <span>{formatCurrency(row.finish_4th_savings_amount)}</span>
-            </div>
-          )
-          : renderCheckbox(row, 'finish_4th_savings', options),
+      render: (row) => (
+        <SavingsAmountCell
+          row={row}
+          savingsField="finish_4th_savings"
+          amountField="finish_4th_savings_amount"
+          options={options}
+        />
+      ),
     },
     {
       key: 'pass_exam_date',

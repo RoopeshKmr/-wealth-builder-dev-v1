@@ -310,6 +310,19 @@ export function TrackerTable<T>({
     setSearchDraft((prev) => ({ ...prev, [columnKey]: value }));
   };
 
+  const clearSearchForColumn = (columnKey: string) => {
+    const nextFilters = {
+      ...searchApplied,
+      [columnKey]: '',
+    };
+
+    setSearchDraft((prev) => ({ ...prev, [columnKey]: '' }));
+    setSearchApplied(nextFilters);
+    if (useServerMode) {
+      onServerFilterChange?.(nextFilters);
+    }
+  };
+
   const applySearchForColumn = (columnKey: string) => {
     const nextFilters = {
       ...searchApplied,
@@ -510,19 +523,35 @@ export function TrackerTable<T>({
                     }}
                   >
                     {column.searchable ? (
-                      <input
-                        type="text"
-                        className="tracker-search-input"
-                        value={draftValue}
-                        placeholder={column.searchPlaceholder || `Search ${column.label}`}
-                        onChange={(e) => handleSearchDraftChange(column.key, e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            applySearchForColumn(column.key);
-                          }
-                        }}
-                        title={`Press Enter to filter ${column.label}`}
-                      />
+                      <div className="tracker-search-input-wrap">
+                        <input
+                          type="text"
+                          className="tracker-search-input"
+                          value={draftValue}
+                          placeholder={column.searchPlaceholder || `Search ${column.label}`}
+                          onChange={(e) => handleSearchDraftChange(column.key, e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              applySearchForColumn(column.key);
+                            }
+                            if (e.key === 'Escape' && draftValue) {
+                              clearSearchForColumn(column.key);
+                            }
+                          }}
+                          title={`Press Enter to filter ${column.label}`}
+                        />
+                        {draftValue ? (
+                          <button
+                            type="button"
+                            className="tracker-search-clear-btn"
+                            onClick={() => clearSearchForColumn(column.key)}
+                            aria-label={`Clear ${column.label} search`}
+                            title={`Clear ${column.label} search`}
+                          >
+                            ×
+                          </button>
+                        ) : null}
+                      </div>
                     ) : (
                       <span className="tracker-search-placeholder" />
                     )}

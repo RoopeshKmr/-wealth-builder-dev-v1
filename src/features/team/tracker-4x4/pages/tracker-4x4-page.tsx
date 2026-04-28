@@ -73,7 +73,7 @@ export default function Tracker4x4Page() {
   const handlePatchField = async (
     userId: number,
     field: keyof Tracker4x4Record,
-    value: string | boolean | null
+    value: number | string | boolean | null
   ) => {
     const savingKey = `${userId}:${String(field)}`;
     setSavingKeySet((prev) => new Set(prev).add(savingKey));

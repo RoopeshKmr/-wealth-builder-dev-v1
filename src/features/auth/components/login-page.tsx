@@ -55,12 +55,7 @@ export function LoginPage() {
     setError('');
     setResetMessage('');
 
-    if (!email) {
-      setError('Enter your email first, then click Forgot password.');
-      return;
-    }
-
-    setResetMessage('Password reset is managed by admin in the new platform. Please contact support.');
+    setResetMessage('Use the reset link from your email. After opening the link, you can set your password and update your details.');
   };
 
   return (
