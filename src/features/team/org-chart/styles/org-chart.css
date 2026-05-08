@@ -584,12 +584,12 @@
   font-weight: 800;
   color: #1a1a1a;
   line-height: 1.18;
-  min-height: 2.36em;
-  max-height: 2.36em;
+  /* min-height: 2.36em;
+  max-height: 2.36em; */
   word-wrap: break-word;
   overflow-wrap: anywhere;
   max-width: 100%;
-  overflow: hidden;
+  /* overflow: hidden; */
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -606,7 +606,7 @@
   color: #334155;
   text-transform: uppercase;
   letter-spacing: 0.2px;
-  margin-bottom: 4px;
+  margin-bottom: -2px;
 }
 
 .org-node-level-counts {
@@ -664,7 +664,7 @@
 .org-node-agencycode {
   font-size: 0.92rem;
   color: #000;
-  overflow: hidden;
+  /* overflow: hidden; */
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
