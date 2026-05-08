@@ -168,6 +168,8 @@ function OrgChart() {
         client: nodeUser.client,
         childCount: Math.max(childIds.length, nodeUser.childCount || 0),
         children,
+        roles: nodeUser.roles,
+        levelCounts: nodeUser.levelCounts,
       };
     };
 

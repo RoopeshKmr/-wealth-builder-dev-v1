@@ -606,6 +606,47 @@
   color: #334155;
   text-transform: uppercase;
   letter-spacing: 0.2px;
+  margin-bottom: 4px;
+}
+
+.org-node-level-counts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.75rem;
+  width: 100%;
+  margin-top: 2px;
+  margin-bottom: 20px;
+}
+
+.level-counts-codes {
+  display: flex;
+  justify-content: center;
+  gap: 3px;
+  width: 100%;
+}
+
+.level-code {
+  font-weight: 600;
+  color: #334155;
+  min-width: 18px;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.level-counts-values {
+  display: flex;
+  justify-content: center;
+  gap: 3px;
+  width: 100%;
+}
+
+.level-count {
+  font-weight: 500;
+  color: #475569;
+  min-width: 18px;
+  text-align: center;
 }
 
 .org-node-badge {

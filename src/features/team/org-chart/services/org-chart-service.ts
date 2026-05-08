@@ -13,6 +13,13 @@ interface LevelPayload {
   name?: string;
 }
 
+interface LevelCountPayload {
+  level_id?: number | null;
+  level_code?: string | null;
+  level_name?: string | null;
+  count: number;
+}
+
 interface BackendUser {
   id: number;
   email?: string;
@@ -38,6 +45,14 @@ interface BackendUser {
   key_player?: boolean;
   client?: boolean;
   net_license_amount?: number | string | null;
+  level_counts?: LevelCountPayload[];
+}
+
+export interface LevelCount {
+  levelId: string | null;
+  levelCode: string | null;
+  levelName: string | null;
+  count: number;
 }
 
 export interface OrgChartUser {
@@ -61,6 +76,7 @@ export interface OrgChartUser {
   client: boolean;
   hasChildren: boolean;
   childCount: number;
+  levelCounts: LevelCount[];
 }
 
 interface SmdOption {
@@ -211,6 +227,29 @@ function buildChildrenMap(users: OrgChartUser[]): Record<string, string[]> {
   return map;
 }
 
+function normalizeLevelCounts(raw: UnknownRecord): LevelCount[] {
+  const levelCounts = raw.level_counts;
+  if (!Array.isArray(levelCounts)) {
+    return [];
+  }
+
+  return levelCounts
+    .map((item) => {
+      const itemRecord = toRecord(item);
+      if (!itemRecord) return null;
+      const count = Number(itemRecord.count);
+      if (!Number.isFinite(count)) return null;
+
+      return {
+        levelId: toId(itemRecord.level_id) || null,
+        levelCode: typeof itemRecord.level_code === 'string' ? itemRecord.level_code : null,
+        levelName: typeof itemRecord.level_name === 'string' ? itemRecord.level_name : null,
+        count,
+      };
+    })
+    .filter((item): item is LevelCount => Boolean(item));
+}
+
 function normalizeOrgUser(raw: UnknownRecord, parentIdFromTree: string | null = null): OrgChartUser | null {
   const id = toId(raw.id ?? raw.user_id ?? raw.account_id);
   if (!id) return null;
@@ -260,6 +299,7 @@ function normalizeOrgUser(raw: UnknownRecord, parentIdFromTree: string | null = 
     client,
     hasChildren,
     childCount,
+    levelCounts: normalizeLevelCounts(raw),
   };
 }
 

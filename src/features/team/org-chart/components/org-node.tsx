@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
+import type { LevelCount } from '../services/org-chart-service';
 
 const avatarCache: Record<string, string> = {};
 
@@ -53,6 +54,7 @@ export interface OrgNodeData {
   onClick?: () => void;
   childrenCount?: number;
   filterBackground?: Record<string, string>;
+  levelCounts?: LevelCount[];
 }
 
 const OrgNode = memo(function OrgNode({ data, selected }: NodeProps) {
@@ -74,6 +76,7 @@ const OrgNode = memo(function OrgNode({ data, selected }: NodeProps) {
     onToggleCollapse,
     onClick,
     childrenCount = 0,
+    levelCounts = [],
   } = nodeData;
 
   const isBroker = plan === 'Broker';
@@ -145,6 +148,25 @@ const OrgNode = memo(function OrgNode({ data, selected }: NodeProps) {
       <div className="org-chart-node-name">{name}</div>
       <div className="org-node-agencycode">{agencyCode}</div>
       <div className="org-node-level">{level}</div>
+
+      {levelCounts && levelCounts.length > 0 && (
+        <div className="org-node-level-counts">
+          <div className="level-counts-codes">
+            {levelCounts.map((lc) => (
+              <span key={lc.levelCode || lc.levelId} className="level-code">
+                {lc.levelCode || lc.levelName?.charAt(0) || ''}
+              </span>
+            ))}
+          </div>
+          <div className="level-counts-values">
+            {levelCounts.map((lc) => (
+              <span key={lc.levelCode || lc.levelId} className="level-count">
+                {lc.count}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {hasChildren && (
         <button

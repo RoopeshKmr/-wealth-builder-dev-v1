@@ -1,5 +1,6 @@
 import dagre from 'dagre';
 import type { Edge, Node } from '@xyflow/react';
+import type { LevelCount } from '../services/org-chart-service';
 
 export interface TreeNode {
   id: string;
@@ -20,6 +21,8 @@ export interface TreeNode {
   client: boolean;
   childCount: number;
   children: TreeNode[];
+  roles?: string[];
+  levelCounts?: LevelCount[];
 }
 
 interface LayoutOptions {
@@ -50,7 +53,7 @@ export function treeToFlowElements(tree: TreeNode | null, options: LayoutOptions
         email: node.email,
         profilePicture: node.profilePicture || node.photoURL || '',
         photoURL: node.photoURL || node.profilePicture || '',
-        level: node.level || node.plan || '',
+        level: node.level || node.roles?.[0] || '',
         isBrokerSubRoot: false,
         isFocused: node.id === focusNodeId,
         training: node.training,
@@ -62,6 +65,7 @@ export function treeToFlowElements(tree: TreeNode | null, options: LayoutOptions
         hasProduction: node.hasProduction,
         client: node.client,
         childCount: node.childCount,
+        levelCounts: node.levelCounts || [],
       },
       position: { x: 0, y: 0 },
     };

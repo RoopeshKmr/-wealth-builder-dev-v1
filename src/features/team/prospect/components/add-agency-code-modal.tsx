@@ -53,6 +53,7 @@ export function AddAgencyCodeModal({
       recruiterId: prospect.recruited_by,
       leader: prospect.leader_name || '',
       leaderId: prospect.leader,
+      level: prospect.level?.id ?? null,
     }));
   }, [prospect]);
 

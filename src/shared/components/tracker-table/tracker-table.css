@@ -362,10 +362,6 @@
   background: var(--tracker-row-even-bg);
 }
 
-.tracker-tr:hover .tracker-td {
-  background: var(--tracker-row-hover-bg);
-}
-
 .tracker-tr.tracker-clickable {
   cursor: pointer;
 }
@@ -397,17 +393,8 @@
   background: var(--tracker-sticky-even-bg);
 }
 
-.tracker-tr:hover .tracker-td.sticky-col {
-  background: var(--tracker-sticky-hover-bg);
-}
-
 .tracker-tr.prospect-row-mark-client .tracker-td,
 .tracker-tr.prospect-row-mark-client .tracker-td.sticky-col {
-  background: rgb(34, 197, 94);
-}
-
-.tracker-tr.prospect-row-mark-client:hover .tracker-td,
-.tracker-tr.prospect-row-mark-client:hover .tracker-td.sticky-col {
   background: rgb(34, 197, 94);
 }
 
@@ -431,11 +418,6 @@
 
 .tracker-tr.prospect-row-mark-both .tracker-td,
 .tracker-tr.prospect-row-mark-both .tracker-td.sticky-col {
-  background: rgb(79, 125, 243);
-}
-
-.tracker-tr.prospect-row-mark-both:hover .tracker-td,
-.tracker-tr.prospect-row-mark-both:hover .tracker-td.sticky-col {
   background: rgb(79, 125, 243);
 }
 

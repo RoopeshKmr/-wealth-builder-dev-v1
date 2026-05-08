@@ -24,6 +24,14 @@ export interface UserProfile {
   flags?: Record<string, boolean>;
 }
 
+export interface LevelData {
+  id: number;
+  code: string;
+  rank: number;
+  name: string;
+  description: string;
+}
+
 export interface Prospect {
   id: number;
   username: string;
@@ -44,6 +52,7 @@ export interface Prospect {
   recruited_by: number | null;
   parent: number | null;
   leader: number | null;
+  level: LevelData | null;
   roles: string[];
   prospect_meta: ProspectMeta | null;
   profile: UserProfile | null;
