@@ -180,6 +180,7 @@
 .tracker-group-th.group-sub {
   font-size: 13px;
   color: var(--tracker-group-sub-text);
+  text-wrap: auto;
 }
 
 .tracker-th.is-sortable {
