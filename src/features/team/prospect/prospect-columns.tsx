@@ -168,16 +168,14 @@ export function buildProspectColumns(
       sortable: true,
       value: (row) => (row.prospect_meta?.top25 ? 'Yes' : 'No'),
       render: (row) => (
-        <label className={`tracker-toggle-box ${row.prospect_meta?.top25 ? 'is-on' : 'is-off'}`}>
-          <input
-            className="tracker-checkbox-lg"
-            type="checkbox"
-            checked={Boolean(row.prospect_meta?.top25)}
-            disabled={options.savingMetaProspectIdSet.has(row.id)}
-            aria-label={`Top 25 for ${row.full_name || row.email}`}
-            onChange={(e) => options.onToggleProspectMeta(row, 'top25', e.target.checked)}
-          />
-        </label>
+        <input
+          className="tracker-checkbox-lg prospect-checkbox-neutral"
+          type="checkbox"
+          checked={Boolean(row.prospect_meta?.top25)}
+          disabled={options.savingMetaProspectIdSet.has(row.id)}
+          aria-label={`Top 25 for ${row.full_name || row.email}`}
+          onChange={(e) => options.onToggleProspectMeta(row, 'top25', e.target.checked)}
+        />
       ),
     },
     {
@@ -188,16 +186,14 @@ export function buildProspectColumns(
       sortable: true,
       value: (row) => (row.prospect_meta?.hot ? 'Yes' : 'No'),
       render: (row) => (
-        <label className={`tracker-toggle-box ${row.prospect_meta?.hot ? 'is-on' : 'is-off'}`}>
-          <input
-            className="tracker-checkbox-lg"
-            type="checkbox"
-            checked={Boolean(row.prospect_meta?.hot)}
-            disabled={options.savingMetaProspectIdSet.has(row.id)}
-            aria-label={`Hot lead for ${row.full_name || row.email}`}
-            onChange={(e) => options.onToggleProspectMeta(row, 'hot', e.target.checked)}
-          />
-        </label>
+        <input
+          className="tracker-checkbox-lg prospect-checkbox-neutral"
+          type="checkbox"
+          checked={Boolean(row.prospect_meta?.hot)}
+          disabled={options.savingMetaProspectIdSet.has(row.id)}
+          aria-label={`Hot lead for ${row.full_name || row.email}`}
+          onChange={(e) => options.onToggleProspectMeta(row, 'hot', e.target.checked)}
+        />
       ),
     },
     {

@@ -275,6 +275,23 @@
   height: 30px;
 }
 
+.tracker-th.tracker-col-compact,
+.tracker-td.tracker-col-compact {
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+.tracker-search-th.tracker-col-compact {
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+.tracker-search-th.tracker-col-compact .tracker-search-input {
+  min-width: 44px;
+  padding: 5px 22px 5px 6px;
+  font-size: 10px;
+}
+
 .tracker-lock-btn {
   display: flex;
   align-items: center;
@@ -563,6 +580,26 @@
 .tracker-checkbox-lg:disabled {
   cursor: wait;
   opacity: 0.65;
+}
+
+.tracker-checkbox-lg.prospect-checkbox-neutral {
+  width: 18px;
+  height: 18px;
+  background: transparent;
+  border-color: rgba(245, 208, 74, 0.85);
+  box-shadow: inset 0 0 0 1px rgba(245, 208, 74, 0.22);
+}
+
+.tracker-checkbox-lg.prospect-checkbox-neutral::after {
+  width: 6px;
+  height: 11px;
+  border-color: #facc15;
+}
+
+.tracker-checkbox-lg.prospect-checkbox-neutral:checked {
+  background: rgba(250, 204, 21, 0.2);
+  border-color: #facc15;
+  box-shadow: 0 0 8px rgba(250, 204, 21, 0.35);
 }
 
 .count-pill {

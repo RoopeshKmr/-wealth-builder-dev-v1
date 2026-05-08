@@ -46,13 +46,14 @@ function OrgChart() {
   const [selectedSMDId, setSelectedSMDId] = useState<string | null>(null);
   const [smdList, setSmdList] = useState<Array<{ id: string; firstName: string; lastName: string; agentLevel: string }>>([]);
   const [users, setUsers] = useState<OrgChartUser[]>([]);
+  const [rootNodeId, setRootNodeId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
+  const [expandedDepthOverrideNodes, setExpandedDepthOverrideNodes] = useState<Set<string>>(new Set());
   const [expandDepth, setExpandDepth] = useState<number | null>(1);
   const [apiChildrenMap, setApiChildrenMap] = useState<Record<string, string[]>>({});
-  const [loadingDownlineIds, setLoadingDownlineIds] = useState<Set<string>>(new Set());
   const [reloadTick, setReloadTick] = useState(0);
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [pendingCenterId, setPendingCenterId] = useState<string | null>(null);
@@ -86,9 +87,8 @@ function OrgChart() {
 
         setUsers(transformedData.users);
         setSmdList(transformedData.smd_list || []);
-
-        const firstUser = transformedData.users[0];
-        setApiChildrenMap(firstUser?._apiIndexes?.childrenMap || {});
+        setRootNodeId(transformedData.rootId || selectedSMDId || localStorage.getItem('wb.userId') || null);
+        setApiChildrenMap(transformedData.childrenMap || {});
         setError(null);
       } catch (fetchError) {
         if (!alive) return;
@@ -110,8 +110,29 @@ function OrgChart() {
   const tree = useMemo<TreeNode | null>(() => {
     if (!users.length) return null;
 
-    const currentUserId = user?.id || localStorage.getItem('wb.userId') || users[0].id;
-    const currentUser = byId[currentUserId] || users[0];
+    const currentUserId = rootNodeId || user?.id || localStorage.getItem('wb.userId') || users[0].id;
+    const currentUser = byId[currentUserId] || {
+      id: currentUserId,
+      name: user?.displayName || user?.email || 'Root User',
+      email: user?.email || '',
+      plan: 'Agent',
+      level: 'Agent',
+      agencyCode: '',
+      parentId: null,
+      recruitedById: null,
+      leaderId: null,
+      roles: [],
+      training: false,
+      bigEvent: false,
+      keyPlayer: false,
+      netLicenseAmount: 0,
+      netLicensed: false,
+      licensed: false,
+      hasProduction: false,
+      client: false,
+      hasChildren: Boolean(apiChildrenMap[currentUserId]?.length),
+      childCount: (apiChildrenMap[currentUserId] || []).length,
+    };
     if (!currentUser) return null;
 
     const buildTree = (nodeUser: OrgChartUser, depth = 0, visited = new Set<string>()): TreeNode | null => {
@@ -141,24 +162,23 @@ function OrgChart() {
         bigEvent: nodeUser.bigEvent,
         keyPlayer: nodeUser.keyPlayer,
         netLicenseAmount: nodeUser.netLicenseAmount,
+        netLicensed: nodeUser.netLicensed,
         licensed: nodeUser.licensed,
         hasProduction: nodeUser.hasProduction,
+        client: nodeUser.client,
         childCount: Math.max(childIds.length, nodeUser.childCount || 0),
         children,
       };
     };
 
     return buildTree(currentUser);
-  }, [apiChildrenMap, byId, user?.id, users]);
+  }, [apiChildrenMap, byId, rootNodeId, user?.displayName, user?.email, user?.id, users]);
 
-  const hasChildren = useCallback((nodeId: string, treeNode: TreeNode | null): boolean => {
-    if (!treeNode) return false;
-    if (treeNode.id === nodeId) {
-      const knownCount = byId[nodeId]?.childCount || 0;
-      return knownCount > 0 || treeNode.childCount > 0 || treeNode.children.length > 0;
-    }
-    return treeNode.children.some((child) => hasChildren(nodeId, child));
-  }, [byId]);
+  const hasChildren = useCallback((nodeId: string): boolean => {
+    const userHasChildren = Boolean(byId[nodeId]?.hasChildren);
+    const loadedChildren = (apiChildrenMap[nodeId] || []).length > 0;
+    return userHasChildren || loadedChildren;
+  }, [apiChildrenMap, byId]);
 
   const getDescendantCount = useCallback((nodeId: string, treeNode: TreeNode | null): number => {
     if (!treeNode) return 0;
@@ -189,8 +209,8 @@ function OrgChart() {
     if (nodeData.bigEvent) matches.push(FILTER_KEYS.BIG_EVENT);
     if (nodeData.keyPlayer) matches.push(FILTER_KEYS.KEY_PLAYER);
     if (nodeData.licensed) matches.push(FILTER_KEYS.LICENSED);
-    if (nodeData.netLicenseAmount > 1000) matches.push(FILTER_KEYS.NET_LICENSED);
-    if (nodeData.hasProduction) matches.push(FILTER_KEYS.CLIENT);
+    if (Boolean(nodeData.netLicensed)) matches.push(FILTER_KEYS.NET_LICENSED);
+    if (Boolean(nodeData.client) || nodeData.hasProduction) matches.push(FILTER_KEYS.CLIENT);
     return matches;
   }, []);
 
@@ -220,73 +240,24 @@ function OrgChart() {
     };
   }, [activeFilters, getNodeFilterMatches]);
 
-  const mergeOrgData = useCallback(
-    (incomingUsers: OrgChartUser[], incomingChildrenMap: Record<string, string[]>) => {
-      setUsers((previous) => {
-        const merged = new Map(previous.map((user) => [user.id, user]));
-        incomingUsers.forEach((user) => {
-          const current = merged.get(user.id);
-          merged.set(user.id, {
-            ...(current || user),
-            ...user,
-            childCount: Math.max(current?.childCount || 0, user.childCount || 0),
-          });
-        });
-        return Array.from(merged.values());
-      });
+  const handleToggleCollapse = useCallback((nodeId: string, isDepthLimited: boolean) => {
+    const isCurrentlyCollapsed = collapsedNodes.has(nodeId) || isDepthLimited;
 
-      setApiChildrenMap((previous) => {
-        const next: Record<string, string[]> = { ...previous };
-        Object.entries(incomingChildrenMap).forEach(([parentId, childIds]) => {
-          const existing = new Set(next[parentId] || []);
-          childIds.forEach((childId) => existing.add(childId));
-          next[parentId] = Array.from(existing);
-        });
-        return next;
-      });
-    },
-    []
-  );
-
-  const loadDownlineForUser = useCallback(
-    async (nodeId: string) => {
-      if (loadingDownlineIds.has(nodeId)) return;
-
-      setLoadingDownlineIds((previous) => {
-        const next = new Set(previous);
-        next.add(nodeId);
-        return next;
-      });
-
-      try {
-        const downline = await orgChartService.fetchDownlineData(nodeId);
-        mergeOrgData(downline.users, downline.childrenMap);
-        setError(null);
-      } catch (fetchError) {
-        const message = fetchError instanceof Error ? fetchError.message : 'Failed to load downline';
-        setError(message);
-      } finally {
-        setLoadingDownlineIds((previous) => {
+    if (isCurrentlyCollapsed) {
+      if (isDepthLimited) {
+        setExpandedDepthOverrideNodes((previous) => {
           const next = new Set(previous);
-          next.delete(nodeId);
+          next.add(nodeId);
+          return next;
+        });
+      } else {
+        setExpandedDepthOverrideNodes((previous) => {
+          const next = new Set(previous);
+          next.add(nodeId);
           return next;
         });
       }
-    },
-    [loadingDownlineIds, mergeOrgData]
-  );
 
-  const handleToggleCollapse = useCallback(async (nodeId: string, isDepthLimited: boolean) => {
-    const isCurrentlyCollapsed = collapsedNodes.has(nodeId) || isDepthLimited;
-    const nodeUser = byId[nodeId];
-    const hasLoadedChildren = Boolean(apiChildrenMap[nodeId]?.length);
-    const shouldLoadDownline = isCurrentlyCollapsed && !hasLoadedChildren && (nodeUser?.childCount || 0) > 0;
-
-    if (shouldLoadDownline) {
-      await loadDownlineForUser(nodeId);
-    }
-
-    if (isCurrentlyCollapsed) {
       setCollapsedNodes((previous) => {
         const next = new Set(previous);
         next.delete(nodeId);
@@ -295,12 +266,18 @@ function OrgChart() {
       return;
     }
 
+    setExpandedDepthOverrideNodes((previous) => {
+      const next = new Set(previous);
+      next.delete(nodeId);
+      return next;
+    });
+
     setCollapsedNodes((previous) => {
       const next = new Set(previous);
       next.add(nodeId);
       return next;
     });
-  }, [apiChildrenMap, byId, collapsedNodes, loadDownlineForUser]);
+  }, [collapsedNodes]);
 
   const { nodes, edges } = useMemo(() => {
     if (!tree) return { nodes: [] as Node[], edges: [] as Edge[] };
@@ -312,24 +289,7 @@ function OrgChart() {
     };
     walkDepth(tree);
 
-    const pruneTreeForLayout = (node: TreeNode, depth = 0): TreeNode => {
-      const isCollapsed = collapsedNodes.has(node.id);
-      const isDepthLimited = expandDepth !== null && depth >= expandDepth;
-
-      const pruned: TreeNode = {
-        ...node,
-        children: [],
-      };
-
-      if (!isCollapsed && !isDepthLimited) {
-        pruned.children = node.children.map((child) => pruneTreeForLayout(child, depth + 1));
-      }
-
-      return pruned;
-    };
-
-    const visibleTree = pruneTreeForLayout(tree);
-    const { nodes: rawNodes, edges: rawEdges } = layoutTree(visibleTree, {
+    const { nodes: rawNodes, edges: rawEdges } = layoutTree(tree, {
       focusNodeId: tree.id,
       nodeWidth: 160,
       nodeHeight: 190,
@@ -337,11 +297,45 @@ function OrgChart() {
       nodeSep: 40,
     });
 
-    const enhancedNodes = rawNodes.map((node) => {
+    const visibleNodeIds = new Set<string>();
+    const depthLimitedNodeIds = new Set<string>();
+
+    const collectVisibleNodeIds = (node: TreeNode, depth = 0, parentDepthOverride = false) => {
+      visibleNodeIds.add(node.id);
+
+      const isCollapsed = collapsedNodes.has(node.id);
+      const depthOverrideActive = parentDepthOverride || expandedDepthOverrideNodes.has(node.id);
+      const hasChildrenNode = hasChildren(node.id);
+      const isDepthLimited =
+        expandDepth !== null
+        && depth >= expandDepth
+        && hasChildrenNode
+        && !depthOverrideActive;
+
+      if (isDepthLimited) {
+        depthLimitedNodeIds.add(node.id);
+      }
+
+      if (isCollapsed || isDepthLimited) {
+        return;
+      }
+
+      node.children.forEach((child) => collectVisibleNodeIds(child, depth + 1, depthOverrideActive));
+    };
+
+    collectVisibleNodeIds(tree);
+
+    const enhancedNodes = rawNodes
+      .filter((node) => visibleNodeIds.has(node.id))
+      .map((node) => {
       const currentData = node.data as OrgNodeData;
       const depth = depthMap.get(node.id) || 0;
-      const hasChildrenNode = hasChildren(node.id, tree);
-      const isDepthLimited = expandDepth !== null && depth >= expandDepth && hasChildrenNode;
+      const hasChildrenNode = hasChildren(node.id);
+      const isDepthLimited =
+        expandDepth !== null
+        && depth >= expandDepth
+        && hasChildrenNode
+        && depthLimitedNodeIds.has(node.id);
 
       const updatedData: OrgNodeData = {
         ...currentData,
@@ -372,6 +366,7 @@ function OrgChart() {
     };
   }, [
     collapsedNodes,
+    expandedDepthOverrideNodes,
     expandDepth,
     getDescendantCount,
     getNodeFilterBackground,
@@ -475,6 +470,8 @@ function OrgChart() {
           setCurrentViewType(view);
           setSelectedSMDId(null);
           setSelectedUserId(null);
+          setCollapsedNodes(new Set());
+          setExpandedDepthOverrideNodes(new Set());
         }}
         onSearch={handleSearch}
         onCenterOnMe={handleCenterOnMe}
@@ -495,10 +492,13 @@ function OrgChart() {
         onSMDSelect={(smdId) => {
           setSelectedSMDId(smdId);
           setSelectedUserId(null);
+          setCollapsedNodes(new Set());
+          setExpandedDepthOverrideNodes(new Set());
         }}
         onExpandToDepth={(depth) => {
           setExpandDepth(depth);
           setCollapsedNodes(new Set());
+          setExpandedDepthOverrideNodes(new Set());
           if (tree?.id) {
             setSelectedUserId(tree.id);
             setPendingCenterId(tree.id);

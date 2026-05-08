@@ -41,8 +41,10 @@ export interface OrgNodeData {
   bigEvent: boolean;
   keyPlayer: boolean;
   netLicenseAmount: number;
+  netLicensed?: boolean;
   licensed: boolean;
   hasProduction: boolean;
+  client?: boolean;
   highlightColor?: string | null;
   isDimmed?: boolean;
   isCollapsed?: boolean;

@@ -14,8 +14,10 @@ export interface TreeNode {
   bigEvent: boolean;
   keyPlayer: boolean;
   netLicenseAmount: number;
+  netLicensed: boolean;
   licensed: boolean;
   hasProduction: boolean;
+  client: boolean;
   childCount: number;
   children: TreeNode[];
 }
@@ -55,8 +57,10 @@ export function treeToFlowElements(tree: TreeNode | null, options: LayoutOptions
         bigEvent: node.bigEvent,
         keyPlayer: node.keyPlayer,
         netLicenseAmount: node.netLicenseAmount,
+        netLicensed: node.netLicensed,
         licensed: node.licensed,
         hasProduction: node.hasProduction,
+        client: node.client,
         childCount: node.childCount,
       },
       position: { x: 0, y: 0 },

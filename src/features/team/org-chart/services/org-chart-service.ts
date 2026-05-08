@@ -20,8 +20,10 @@ interface BackendUser {
   first_name?: string;
   last_name?: string;
   full_name?: string;
+  plan?: string;
   agency_code?: string;
-  level?: LevelPayload | null;
+  level?: LevelPayload | string | null;
+  level_name?: string | null;
   roles?: string[];
   parent?: number | null;
   recruited_by?: number | null;
@@ -29,6 +31,13 @@ interface BackendUser {
   child_count?: number;
   children_count?: number;
   has_children?: boolean;
+  bpm_attendance?: boolean;
+  big_event?: boolean;
+  licensed?: boolean;
+  net_licensed?: boolean;
+  key_player?: boolean;
+  client?: boolean;
+  net_license_amount?: number | string | null;
 }
 
 export interface OrgChartUser {
@@ -46,12 +55,12 @@ export interface OrgChartUser {
   bigEvent: boolean;
   keyPlayer: boolean;
   netLicenseAmount: number;
+  netLicensed: boolean;
   licensed: boolean;
   hasProduction: boolean;
+  client: boolean;
+  hasChildren: boolean;
   childCount: number;
-  _apiIndexes?: {
-    childrenMap: Record<string, string[]>;
-  };
 }
 
 interface SmdOption {
@@ -63,6 +72,8 @@ interface SmdOption {
 
 interface OrgChartData {
   users: OrgChartUser[];
+  childrenMap: Record<string, string[]>;
+  rootId: string | null;
   smd_list: SmdOption[];
   selected_smd: string | null;
   view_type: OrgViewType;
@@ -141,9 +152,18 @@ function normalizeName(user: BackendUser | UnknownRecord): string {
 
 function normalizeLevel(user: BackendUser | UnknownRecord): string {
   const userRecord = user as UnknownRecord;
+  const levelValue = userRecord.level;
+
+  if (typeof levelValue === 'string' && levelValue.trim()) {
+    return levelValue.trim();
+  }
+
   const levelRecord = toRecord(userRecord.level);
   const levelCode = getString(levelRecord || {}, 'code').trim();
   if (levelCode) return levelCode;
+
+  const levelNameField = getString(userRecord, 'level_name').trim();
+  if (levelNameField) return levelNameField;
 
   const levelName = getString(levelRecord || {}, 'name').trim();
   if (levelName) return levelName;
@@ -173,22 +193,22 @@ function normalizeRoleLabel(role: string): string {
 }
 
 function buildChildrenMap(users: OrgChartUser[]): Record<string, string[]> {
-  const byId = new Set(users.map((user) => user.id));
-  let childrenMap: Record<string, string[]> = {};
+  const map: Record<string, string[]> = {};
 
   users.forEach((user) => {
-    const parentId = user.parentId || user.recruitedById || user.leaderId;
-    if (!parentId || !byId.has(parentId) || parentId === user.id) {
-      return;
+    const parentId = user.recruitedById || user.parentId || user.leaderId;
+    if (!parentId || parentId === user.id) return;
+    if (!map[parentId]) {
+      map[parentId] = [];
     }
-
-    if (!childrenMap[parentId]) {
-      childrenMap[parentId] = [];
-    }
-    childrenMap[parentId].push(user.id);
+    map[parentId].push(user.id);
   });
 
-  return childrenMap;
+  Object.keys(map).forEach((parentId) => {
+    map[parentId] = Array.from(new Set(map[parentId]));
+  });
+
+  return map;
 }
 
 function normalizeOrgUser(raw: UnknownRecord, parentIdFromTree: string | null = null): OrgChartUser | null {
@@ -202,34 +222,44 @@ function normalizeOrgUser(raw: UnknownRecord, parentIdFromTree: string | null = 
     ? raw.roles.filter((role): role is string => typeof role === 'string')
     : [];
   const primaryRoleLabel = roles.length > 0 ? normalizeRoleLabel(roles[0]) : 'Agent';
+  const plan = typeof raw.plan === 'string' && raw.plan.trim().length > 0
+    ? raw.plan.trim()
+    : primaryRoleLabel;
 
   const parsedChildCount = Number(raw.children_count ?? raw.child_count);
   const hasChildrenFlag = Boolean(raw.has_children);
   const childCount = Number.isFinite(parsedChildCount)
     ? parsedChildCount
-    : hasChildrenFlag
-      ? 1
-      : 0;
+    : 0;
+
+  const netLicensed = Boolean(raw.net_licensed);
+  const parsedNetAmount = Number(raw.net_license_amount);
+  const netLicenseAmount = Number.isFinite(parsedNetAmount) ? parsedNetAmount : (netLicensed ? 1 : 0);
+
+  const hasChildren = hasChildrenFlag || childCount > 0;
+  const client = Boolean(raw.client);
 
   return {
     id,
     name: normalizeName(raw),
     email: typeof raw.email === 'string' ? raw.email : '',
-    plan: primaryRoleLabel,
+    plan,
     level: normalizeLevel(raw),
     agencyCode: typeof raw.agency_code === 'string' ? raw.agency_code : '',
     parentId,
     recruitedById,
     leaderId,
     roles,
-    training: false,
-    bigEvent: false,
-    keyPlayer: false,
-    netLicenseAmount: 0,
-    licensed: false,
-    hasProduction: false,
+    training: Boolean(raw.bpm_attendance),
+    bigEvent: Boolean(raw.big_event),
+    keyPlayer: Boolean(raw.key_player),
+    netLicenseAmount,
+    netLicensed,
+    licensed: Boolean(raw.licensed),
+    hasProduction: client,
+    client,
+    hasChildren,
     childCount,
-    _apiIndexes: undefined,
   };
 }
 
@@ -274,6 +304,15 @@ function transformToUsersAndChildrenMap(payload: unknown): {
         .map((child) => walk(child, normalized.id))
         .filter((childId): childId is string => Boolean(childId));
       childrenMap[normalized.id] = Array.from(new Set(childIds));
+
+      const current = userMap.get(normalized.id);
+      if (current) {
+        userMap.set(normalized.id, {
+          ...current,
+          hasChildren: true,
+          childCount: Math.max(current.childCount || 0, childIds.length),
+        });
+      }
     }
 
     return normalized.id;
@@ -357,59 +396,32 @@ class OrgChartService {
 
     const payload = await this.fetchJson<unknown>(endpoint);
     const transformed = transformToUsersAndChildrenMap(payload);
+    const rootId = selectedSMDId || transformed.rootId || localStorage.getItem('wb.userId') || transformed.users[0]?.id || null;
     if (!transformed.users.length) {
       return {
         users: [],
+        childrenMap: {},
+        rootId,
         smd_list: [],
         selected_smd: selectedSMDId,
         view_type: viewType,
       };
     }
 
-    const rootId = selectedSMDId
-      || transformed.rootId
-      || localStorage.getItem('wb.userId')
-      || transformed.users[0].id;
-
-    const transformedUsers = transformed.users.map((user) => {
-      if (user.id !== rootId) return user;
-      return {
-        ...user,
-        _apiIndexes: { childrenMap: transformed.childrenMap },
-      };
-    });
-
-    if (!transformedUsers.some((user) => user.id === rootId)) {
-      transformedUsers[0] = {
-        ...transformedUsers[0],
-        _apiIndexes: { childrenMap: transformed.childrenMap },
-      };
+    if (rootId && !transformed.childrenMap[rootId]) {
+      transformed.childrenMap[rootId] = transformed.users.map((user) => user.id);
     }
 
     return {
-      users: transformedUsers,
+      users: transformed.users,
+      childrenMap: transformed.childrenMap,
+      rootId,
       smd_list: transformed.smdList,
       selected_smd: selectedSMDId,
       view_type: viewType,
     };
   }
 
-  async fetchDownlineData(userId: string): Promise<{ users: OrgChartUser[]; childrenMap: Record<string, string[]> }> {
-    const payload = await this.fetchJson<unknown>(`${API_BASE_URL}/api/accounts/users/${encodeURIComponent(userId)}/org-chart/downline/`);
-    const transformed = transformToUsersAndChildrenMap(payload);
-
-    if (!transformed.childrenMap[userId]) {
-      const directChildren = transformed.users
-        .filter((user) => user.parentId === userId || user.recruitedById === userId || user.leaderId === userId)
-        .map((user) => user.id);
-      transformed.childrenMap[userId] = Array.from(new Set(directChildren));
-    }
-
-    return {
-      users: transformed.users,
-      childrenMap: transformed.childrenMap,
-    };
-  }
 }
 
 export async function fetchOrgChart(): Promise<OrgChartLink[]> {
