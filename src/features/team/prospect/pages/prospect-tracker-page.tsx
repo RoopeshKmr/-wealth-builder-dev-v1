@@ -35,7 +35,7 @@ import {
 import { TrackerNotesModal } from '@/features/team/components/tracker-notes-modal';
 
 type SortDirection = 'asc' | 'desc';
-type ProspectMark = 'default' | 'client' | 'recruiter' | 'both';
+type ProspectMark = 'default' | 'client' | 'recruit' | 'both';
 type ProspectOutcome = 'Client' | 'Recruit' | 'Both';
 
 function parseStoredRoles(): string[] {
@@ -80,7 +80,7 @@ interface ImportedContact {
 function normalizeMarkValue(value?: string | null): ProspectMark {
   const raw = (value || '').toLowerCase();
   if (raw === 'client' || raw === 'green') return 'client';
-  if (raw === 'recruiter' || raw === 'recruit' || raw === 'yellow') return 'recruiter';
+  if (raw === 'recruit' || raw === 'yellow') return 'recruit';
   if (raw === 'both' || raw === 'combined') return 'both';
   return 'default';
 }
