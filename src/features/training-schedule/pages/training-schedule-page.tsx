@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/features/auth';
 import { Plan } from '@core/types';
 import { roleToPlan } from '@/core/constants/roles';

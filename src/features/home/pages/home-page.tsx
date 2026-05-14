@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
-import { VideoHero, CarouselCard, LeaderboardCard, PerformanceTable } from '@/features/home/components';
+import { VideoHero, CarouselCard } from '@/features/home/components';
 import { useAuth } from '@/features/auth/hooks/use-auth';
 import { useCarouselImages } from '@/hooks/use-carousel-images';
 import { roleToPlan } from '@core/constants/roles';
@@ -24,8 +24,6 @@ const BACKGROUND_URL =
 const TRAILER_URL =
   'https://firebasestorage.googleapis.com/v0/b/wealthbuilders-crm-9c323.firebasestorage.app/o/dallas-convention-2025-recap.mp4?alt=media&token=8ba184af-14e7-4744-bfcd-a09cb145e1c6';
 const REGISTER_URL = 'https://wealthbuildersevents.com';
-const AVATAR_URL =
-  'https://firebasestorage.googleapis.com/v0/b/wealthbuilders-crm-9c323.firebasestorage.app/o/rec1.png?alt=media&token=df042a0f-924f-487f-a355-85eea6cd8075';
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -98,40 +96,6 @@ export default function HomePage() {
     setRIndex(
       (i) => (i - 1 + recognitionImages.length) % recognitionImages.length
     );
-  };
-
-  // Leaderboard state
-  const [activeTab, setActiveTab] = useState('bp');
-
-  // Mock leaderboard data
-  const mockLeaderboardData = {
-    smd: [
-      { name: 'John Smith', count: 145 },
-      { name: 'Sarah Johnson', count: 132 },
-      { name: 'Mike Williams', count: 118 },
-      { name: 'Emily Davis', count: 105 },
-      { name: 'David Brown', count: 98 },
-    ],
-    md: [
-      { name: 'Lisa Anderson', count: 87 },
-      { name: 'Robert Taylor', count: 79 },
-      { name: 'Jennifer Wilson', count: 71 },
-      { name: 'James Martinez', count: 65 },
-      { name: 'Amanda Garcia', count: 58 },
-    ],
-  };
-
-  // Mock user stats
-  const userStats = {
-    nlr: 12,
-    tr: 45,
-    pp: 350,
-    tp: 1250,
-    lic: 8,
-    nl: 5,
-    tl: 23,
-    bis: 0,
-    be: 0,
   };
 
   return (
