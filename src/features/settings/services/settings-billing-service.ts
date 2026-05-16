@@ -8,6 +8,12 @@ export interface CurrentUserDetails {
   plan?: string;
   roles?: string[];
   agency_code?: string | null;
+  avatar_url?: string | null;
+  profile?: {
+    photo_url?: string | null;
+    photo_url_thumb?: string | null;
+  } | null;
+  updated_at?: string;
 }
 
 export interface PaymentProduct {
@@ -113,6 +119,14 @@ async function parseError(response: Response, fallbackMessage: string): Promise<
   }
 }
 
+function normalizeCurrentUserDetails(user: CurrentUserDetails): CurrentUserDetails {
+  const profileAvatar = user.profile?.photo_blob_thumb;
+  return {
+    ...user,
+    avatar_url: user.avatar_url || profileAvatar,
+  };
+}
+
 export async function fetchCurrentUserDetails(): Promise<CurrentUserDetails> {
   const response = await fetch(`${getApiBaseUrl()}/api/accounts/users/me/`, {
     headers: getAuthHeaders(),
@@ -123,7 +137,8 @@ export async function fetchCurrentUserDetails(): Promise<CurrentUserDetails> {
     throw new Error(message);
   }
 
-  return (await response.json()) as CurrentUserDetails;
+  const raw = (await response.json()) as CurrentUserDetails;
+  return normalizeCurrentUserDetails(raw);
 }
 
 export async function fetchPaymentProducts(): Promise<PaymentProduct[]> {
@@ -283,4 +298,34 @@ export async function rejectRequest(
   }
 
   return (await response.json()) as SubscriptionApprovalRequestResponse;
+}
+
+function getMultipartAuthHeaders(): HeadersInit {
+  const token = localStorage.getItem('wb.authToken');
+  if (!token) {
+    throw new Error('No authentication token found. Please sign in again.');
+  }
+
+  return {
+    Authorization: `Token ${token}`,
+  };
+}
+
+export async function uploadCurrentUserPhoto(userId: number, photo: File): Promise<CurrentUserDetails> {
+  const formData = new FormData();
+  formData.append('photo', photo);
+
+  const response = await fetch(`${getApiBaseUrl()}/api/accounts/users/${userId}/upload-photo/`, {
+    method: 'POST',
+    headers: getMultipartAuthHeaders(),
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const message = await parseError(response, 'Failed to upload profile photo.');
+    throw new Error(message);
+  }
+
+  const raw = (await response.json()) as CurrentUserDetails;
+  return normalizeCurrentUserDetails(raw);
 }

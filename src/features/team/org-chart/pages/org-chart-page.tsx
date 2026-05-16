@@ -373,8 +373,8 @@ function OrgChart() {
         level: nodeUser.level,
         agencyCode: nodeUser.agencyCode,
         email: nodeUser.email,
-        profilePicture: '',
-        photoURL: '',
+        profilePicture: nodeUser.avatarUrl || '',
+        photoURL: nodeUser.avatarUrl || '',
         training: nodeUser.training,
         bigEvent: nodeUser.bigEvent,
         keyPlayer: nodeUser.keyPlayer,
@@ -676,6 +676,7 @@ function OrgChart() {
   const handleProfileSaved = useCallback((updated: TrackerUserProfile) => {
     const nextName = updated.full_name?.trim() || `${updated.first_name || ''} ${updated.last_name || ''}`.trim();
     const nextAgencyCode = updated.agency_code || '';
+    const nextAvatarUrl = updated.avatar_url || updated.profile?.photo_url_thumb || updated.profile?.photo_url || '';
 
     setUsers((prev) =>
       prev.map((entry) =>
@@ -685,6 +686,7 @@ function OrgChart() {
               name: nextName || entry.name,
               email: updated.email || entry.email,
               agencyCode: nextAgencyCode || entry.agencyCode,
+              avatarUrl: nextAvatarUrl || entry.avatarUrl,
             }
           : entry
       )

@@ -17,6 +17,7 @@ export interface Tracker4x4Record {
   agency_code?: string | null;
   invited_at?: string | null;
   avatar_url?: string | null;
+  photo_thumb_url?: string | null;
   '1_direct_recruit'?: boolean;
   is_licensed: boolean;
   big_event_1st: boolean;

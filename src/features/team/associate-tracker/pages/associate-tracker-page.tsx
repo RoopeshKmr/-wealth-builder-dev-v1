@@ -329,7 +329,7 @@ export default function AssociateTrackerPage() {
           setProfileOpenFor({
             userId: row.user_id,
             userName: row.user_name,
-            avatarUrl: row.avatar_url,
+            avatarUrl: row.photo_thumb_url || row.avatar_url,
           });
         },
         onOpenHotRecruits: (row) => {

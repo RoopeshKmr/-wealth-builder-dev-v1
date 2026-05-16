@@ -439,7 +439,7 @@ export default function Tracker4x4Page() {
           setProfileOpenFor({
             userId: row.user_id,
             userName: row.user_name,
-            avatarUrl: row.avatar_url,
+            avatarUrl: row.photo_thumb_url || row.avatar_url,
           });
         },
         savingKeySet,
@@ -493,14 +493,14 @@ export default function Tracker4x4Page() {
       [
         { label: '', colSpan: 4, className: 'group-empty' },
         { label: 'PHILOSOPHY', colSpan: 3, className: 'group-main' },
-        { label: 'SYSTEM', colSpan: 9, className: 'group-main' },
+        { label: 'SYSTEM', colSpan: 10, className: 'group-main' },
       ],
       [
         { label: '', colSpan: 4, className: 'group-empty' },
         { label: 'MULTI HANDED', colSpan: 1, className: 'group-sub' },
         { label: '10% 3 RULES 3 GOALS', colSpan: 1, className: 'group-sub' },
         { label: 'BIG EVENT', colSpan: 1, className: 'group-sub' },
-        { label: '4X4', colSpan: 9, className: 'group-sub' },
+        { label: '4X4', colSpan: 10, className: 'group-sub' },
       ],
     ],
     []

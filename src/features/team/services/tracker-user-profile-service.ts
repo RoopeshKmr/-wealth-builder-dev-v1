@@ -28,6 +28,8 @@ export interface TrackerUserProfile {
   level?: { id?: number | null; code?: string | null; name?: string | null } | string | null;
   profile?: {
     birthday?: string | null;
+    photo_url?: string | null;
+    photo_url_thumb?: string | null;
     state?: string;
     gender?: string;
     occupation?: string;
@@ -86,6 +88,22 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
+function getMultipartAuthHeaders(): HeadersInit {
+  const token = localStorage.getItem('wb.authToken');
+  if (!token) throw new Error('No authentication token found');
+  return {
+    Authorization: `Token ${token}`,
+  };
+}
+
+function normalizeTrackerUserProfile(user: TrackerUserProfile): TrackerUserProfile {
+  const profileAvatar = user.profile?.photo_url_thumb || user.profile?.photo_url || null;
+  return {
+    ...user,
+    avatar_url: user.avatar_url || profileAvatar,
+  };
+}
+
 async function fetchOptionalJson<T>(url: string): Promise<T | null> {
   const response = await fetch(url, { headers: getAuthHeaders() });
   if (response.status === 404) return null;
@@ -104,7 +122,8 @@ export async function fetchTrackerUserProfile(userId: number): Promise<TrackerUs
     throw new Error(`Failed to fetch user profile: ${response.statusText}`);
   }
 
-  return (await response.json()) as TrackerUserProfile;
+  const raw = (await response.json()) as TrackerUserProfile;
+  return normalizeTrackerUserProfile(raw);
 }
 
 export async function updateTrackerUserProfile(
@@ -128,7 +147,36 @@ export async function updateTrackerUserProfile(
     throw new Error(message);
   }
 
-  return (await response.json()) as TrackerUserProfile;
+  const raw = (await response.json()) as TrackerUserProfile;
+  return normalizeTrackerUserProfile(raw);
+}
+
+export async function uploadTrackerUserPhoto(
+  userId: number,
+  photo: File
+): Promise<TrackerUserProfile> {
+  const formData = new FormData();
+  formData.append('photo', photo);
+
+  const response = await fetch(`${API_BASE_URL}/api/accounts/users/${userId}/upload-photo/`, {
+    method: 'POST',
+    headers: getMultipartAuthHeaders(),
+    body: formData,
+  });
+
+  if (!response.ok) {
+    let message = `Failed to upload profile photo: ${response.statusText}`;
+    try {
+      const data = await response.json();
+      message = data?.detail || data?.photo || data?.message || message;
+    } catch {
+      // Keep fallback message.
+    }
+    throw new Error(message);
+  }
+
+  const raw = (await response.json()) as TrackerUserProfile;
+  return normalizeTrackerUserProfile(raw);
 }
 
 export async function fetchTrackerProfileSnapshots(userId: number): Promise<TrackerProfileSnapshots> {

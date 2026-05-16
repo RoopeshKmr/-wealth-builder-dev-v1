@@ -46,6 +46,10 @@ interface BackendUser {
   client?: boolean;
   net_license_amount?: number | string | null;
   level_counts?: LevelCountPayload[];
+  profile?: {
+    photo_url?: string | null;
+    photo_url_thumb?: string | null;
+  } | null;
 }
 
 export interface LevelCount {
@@ -77,6 +81,7 @@ export interface OrgChartUser {
   hasChildren: boolean;
   childCount: number;
   levelCounts: LevelCount[];
+  avatarUrl: string;
 }
 
 interface SmdOption {
@@ -278,6 +283,13 @@ function normalizeOrgUser(raw: UnknownRecord, parentIdFromTree: string | null = 
   const hasChildren = hasChildrenFlag || childCount > 0;
   const client = Boolean(raw.client);
 
+  const profile = toRecord(raw.profile);
+  const avatarUrl =
+    (typeof raw.avatar_url === 'string' && raw.avatar_url)
+    || (typeof profile?.photo_url_thumb === 'string' && profile.photo_url_thumb)
+    || (typeof profile?.photo_url === 'string' && profile.photo_url)
+    || '';
+
   return {
     id,
     name: normalizeName(raw),
@@ -300,6 +312,7 @@ function normalizeOrgUser(raw: UnknownRecord, parentIdFromTree: string | null = 
     hasChildren,
     childCount,
     levelCounts: normalizeLevelCounts(raw),
+    avatarUrl,
   };
 }
 

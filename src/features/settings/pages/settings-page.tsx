@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { CardElement, Elements, useElements, useStripe } from '@stripe/react-stripe-js';
 import { useAuth } from '@/features/auth';
@@ -10,6 +10,7 @@ import {
   createSetupIntent,
   createSubscriptionApprovalRequest,
   fetchCurrentUserDetails,
+  uploadCurrentUserPhoto,
   fetchMySubscriptionApprovalRequests,
   fetchPaymentProducts,
   fetchRoles,
@@ -431,7 +432,10 @@ export default function SettingsPage() {
   const [requests, setRequests] = useState<SubscriptionApprovalRequestResponse[]>([]);
   const [approvalRequests, setApprovalRequests] = useState<SubscriptionApprovalRequestResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [avatarVersion, setAvatarVersion] = useState(0);
   const [processingIds, setProcessingIds] = useState<Set<number>>(new Set());
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [actionModal, setActionModal] = useState<{
     open: boolean;
     requestId: number | null;
@@ -600,6 +604,31 @@ export default function SettingsPage() {
     || `${userDetails?.first_name || ''} ${userDetails?.last_name || ''}`.trim()
     || userDetails?.email
     || '';
+  // Use only photo_url_thumb for the profile picture
+  const avatarUrl = userDetails?.profile?.photo_url_thumb || null;
+  const avatarSrc = avatarUrl;//avatarUrl ? `${avatarUrl}${avatarUrl.includes('?') ? '&' : '?'}v=${avatarVersion}` : null;
+
+  const handleUploadPhoto = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file || !userDetails?.id) return;
+
+    try {
+      setUploadingPhoto(true);
+      const updated = await uploadCurrentUserPhoto(userDetails.id, file);
+      setUserDetails((prev) => ({ ...prev, ...updated }));
+      setAvatarVersion(Date.now());
+      addToast({ type: 'success', message: 'Profile photo uploaded successfully.' });
+    } catch (error) {
+      addToast({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Failed to upload profile photo.',
+      });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
 
   return (
     <div className="settings-profile-page profile-page">
@@ -623,8 +652,27 @@ export default function SettingsPage() {
             <div className="profile-content">
               <div className="profile-photo-section">
                 <div className="profile-photo">
-                  <div className="profile-initials">{getInitials(displayName)}</div>
+                  {avatarSrc ? (
+                    <img src={avatarSrc} alt={displayName || 'Profile'} className="profile-photo-img" />
+                  ) : (
+                    <div className="profile-initials">{getInitials(displayName)}</div>
+                  )}
                 </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden-file-input"
+                  onChange={handleUploadPhoto}
+                />
+                <button
+                  type="button"
+                  className="btn-primary btn-upload-photo"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingPhoto || loading}
+                >
+                  {uploadingPhoto ? 'Uploading...' : 'Upload Photo'}
+                </button>
               </div>
 
               <div className="profile-fields">

@@ -25,6 +25,7 @@ const PublicEducationPage = lazy(() => import('@/features/education/pages/public
 const TrackMyLicensePage = lazy(() => import('@/features/licensing/track-my-license/pages/track-my-license-page'));
 const LicensingDocumentsPage = lazy(() => import('@/features/licensing/licensing-documents/pages/licensing-documents-page'));
 const CrashCoursePage = lazy(() => import('@/features/licensing/crash-course/pages/crash-course-page'));
+const ChapterCoursePage = lazy(() => import('@/features/licensing/crash-course/pages/chapter-course-page'));
 const TenSystematicToolsPage = lazy(() => import('@/features/systematic-tools/pages/ten-systematic-tools-page'));
 const OnboardingGamePage = lazy(() => import('@/features/team/onboarding-game/pages/onboarding-game-page'));
 const ResetPasswordPage = lazy(() => import('@/features/auth/components/reset-password-page'));
@@ -146,6 +147,10 @@ const router = createBrowserRouter([
       {
         path: 'licensing/crash-course',
         element: lazyLoad(CrashCoursePage),
+      },
+      {
+        path: 'licensing/chapter/:chapterId',
+        element: lazyLoad(ChapterCoursePage),
       },
       {
         path: 'onboarding-game',

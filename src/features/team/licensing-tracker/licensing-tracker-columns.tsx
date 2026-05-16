@@ -145,7 +145,7 @@ export function buildLicensingColumns(
           fullName={row.user_name}
           invitedAt={row.invited_at || row.created_at}
           agencyCode={row.agency_code}
-          avatarUrl={row.avatar_url}
+          avatarUrl={row.photo_thumb_url || row.avatar_url}
           onAvatarClick={options.onOpenUserProfile ? () => options.onOpenUserProfile?.(row) : undefined}
           onNameClick={options.onOpenUserProfile ? () => options.onOpenUserProfile?.(row) : undefined}
         />

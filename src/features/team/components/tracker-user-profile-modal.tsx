@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import {
   Button,
   Checkbox,
@@ -16,6 +16,7 @@ import {
   type TrackerProfileSnapshots,
   type TrackerUserProfile,
   updateTrackerUserProfile,
+  uploadTrackerUserPhoto,
 } from '@/features/team/services/tracker-user-profile-service';
 
 interface TrackerUserProfileModalProps {
@@ -187,6 +188,9 @@ export function TrackerUserProfileModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<TrackerUserProfile | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [avatarVersion, setAvatarVersion] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [snapshots, setSnapshots] = useState<TrackerProfileSnapshots | null>(null);
   const [levels, setLevels] = useState<Level[]>([]);
   const [form, setForm] = useState<ProfileFormState>(EMPTY_FORM);
@@ -222,7 +226,29 @@ export function TrackerUserProfileModal({
   }, [open, userId]);
 
   const displayName = useMemo(() => toDisplayName(profile, fallbackName), [profile, fallbackName]);
-  const avatarUrl = profile?.avatar_url || fallbackAvatarUrl || null;
+  const avatarUrl = profile?.profile?.photo_url_thumb || null;
+  const avatarSrc = avatarUrl;//avatarUrl ? `${avatarUrl}${avatarUrl.includes('?') ? '&' : '?'}v=${avatarVersion}` : null;
+
+
+  const handleUploadPhoto = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !userId) return;
+    try {
+      setUploadingPhoto(true);
+      const updated = await uploadTrackerUserPhoto(userId, file);
+      setProfile((prev) => ({ ...prev, ...updated }));
+      setAvatarVersion(Date.now());
+      addToast({ type: 'success', message: 'Profile photo uploaded successfully.' });
+    } catch (error) {
+      addToast({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Failed to upload profile photo.',
+      });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
 
   if (!open) return null;
 
@@ -320,20 +346,46 @@ export function TrackerUserProfileModal({
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-4">
           <div className="flex items-center gap-4 rounded-xl border border-white/10 bg-white/5 p-4">
-            <div className="h-16 w-16 overflow-hidden rounded-full border border-white/20 bg-white/10">
-              {avatarUrl ? (
-                <img src={avatarUrl} alt={displayName} className="h-full w-full object-cover" />
+            <div className="h-16 w-16 overflow-hidden rounded-full border border-white/20 bg-white/10 flex-shrink-0">
+              {avatarSrc ? (
+                <img src={avatarSrc} alt={displayName} className="h-full w-full object-cover" />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-lg font-semibold text-white/90">
                   {initialsFromName(displayName)}
                 </div>
               )}
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="truncate text-lg font-semibold text-white">{displayName}</div>
               <div className="text-xs text-white/70">
                 {profile?.agency_code || 'Unknown agency'} • {profile?.roles?.[0] || 'No plan'}
               </div>
+            </div>
+            <div className="flex flex-col items-end ml-auto">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                style={{ display: 'none' }}
+                onChange={handleUploadPhoto}
+              />
+              <Button
+                type="button"
+                className="btn-upload-photo min-w-[120px]"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingPhoto || loading}
+              >
+                {uploadingPhoto ? (
+                  <span>
+                    <span className="inline-block animate-spin mr-2 align-middle">⏳</span>
+                    Uploading...
+                  </span>
+                ) : (
+                  <span>
+                    <span className="inline-block align-middle">📤</span> Upload Photo
+                  </span>
+                )}
+              </Button>
             </div>
           </div>
 
