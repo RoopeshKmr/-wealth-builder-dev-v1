@@ -206,17 +206,20 @@
   background: #ffffff;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  max-height: 300px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  max-height: 320px;
   overflow-y: auto;
-  z-index: 1000;
+  z-index: 1100;
+  padding: 0.5rem 0;
 }
 
 .orgchart-header-autocomplete-item {
-  padding: 0.65rem;
+  padding: 0.75rem 0.75rem;
   cursor: pointer;
-  border-bottom: 1px solid #f1f5f9;
-  transition: background 0.15s ease;
+  border-bottom: none;
+  transition: background 0.12s ease;
+  margin: 0 0.35rem;
+  border-radius: 6px;
 }
 
 .orgchart-header-autocomplete-item:last-child {
@@ -224,35 +227,45 @@
 }
 
 .orgchart-header-autocomplete-item:hover {
-  background: #f8fafc;
+  background: #f0f4ff;
 }
 
 .orgchart-header-autocomplete-name {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: #1e293b;
-  margin-bottom: 0.2rem;
+  margin-bottom: 0.25rem;
+  line-height: 1.2;
 }
 
 .orgchart-header-autocomplete-meta {
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
+  flex-wrap: wrap;
 }
 
 .orgchart-header-autocomplete-type {
-  padding: 0.12rem 0.35rem;
+  padding: 0.1rem 0.28rem;
   background: #d4af37;
   color: white;
-  border-radius: 4px;
-  font-weight: 600;
+  border-radius: 12px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.2px;
+  letter-spacing: 0.15px;
+  font-size: 0.55rem;
+  flex-shrink: 0;
 }
 
 .orgchart-header-autocomplete-email {
   color: #64748b;
+  font-size: 0.7rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 150px;
+  display: none;
 }
 
 .orgchart-header-center-btn {

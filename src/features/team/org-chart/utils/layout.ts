@@ -31,10 +31,18 @@ interface LayoutOptions {
   nodeHeight?: number;
   rankSep?: number;
   nodeSep?: number;
+  collapsedNodeIds?: Set<string>;
+  depthLimitedNodeIds?: Set<string>;
+  visibleNodeIds?: Set<string>;
 }
 
 export function treeToFlowElements(tree: TreeNode | null, options: LayoutOptions = {}) {
-  const { focusNodeId = null } = options;
+  const { 
+    focusNodeId = null,
+    collapsedNodeIds = new Set(),
+    depthLimitedNodeIds = new Set(),
+    visibleNodeIds,
+  } = options;
   const nodes: Node[] = [];
   const edges: Edge[] = [];
 
@@ -43,6 +51,11 @@ export function treeToFlowElements(tree: TreeNode | null, options: LayoutOptions
   }
 
   function traverse(node: TreeNode, parentId: string | null = null) {
+    // If we have explicit visible nodes list, only add if visible
+    if (visibleNodeIds && !visibleNodeIds.has(node.id)) {
+      return;
+    }
+
     const flowNode: Node = {
       id: node.id,
       type: 'custom',
@@ -83,7 +96,10 @@ export function treeToFlowElements(tree: TreeNode | null, options: LayoutOptions
       });
     }
 
-    node.children.forEach((child) => traverse(child, node.id));
+    // Only traverse children if node is not collapsed or depth-limited
+    if (!collapsedNodeIds.has(node.id) && !depthLimitedNodeIds.has(node.id)) {
+      node.children.forEach((child) => traverse(child, node.id));
+    }
   }
 
   traverse(tree);

@@ -508,14 +508,6 @@ function OrgChart() {
     };
     walkDepth(tree);
 
-    const { nodes: rawNodes, edges: rawEdges } = layoutTree(tree, {
-      focusNodeId: tree.id,
-      nodeWidth: 160,
-      nodeHeight: 190,
-      rankSep: 72,
-      nodeSep: 40,
-    });
-
     const visibleNodeIds = new Set<string>();
     const depthLimitedNodeIds = new Set<string>();
 
@@ -544,6 +536,18 @@ function OrgChart() {
 
     collectVisibleNodeIds(tree);
 
+    // Pass visibility info to layout function so dagre only layouts visible nodes
+    const { nodes: rawNodes, edges: rawEdges } = layoutTree(tree, {
+      focusNodeId: tree.id,
+      nodeWidth: 160,
+      nodeHeight: 190,
+      rankSep: 72,
+      nodeSep: 40,
+      collapsedNodeIds: collapsedNodes,
+      depthLimitedNodeIds,
+      visibleNodeIds,
+    });
+
     const enhancedNodes = rawNodes
       .filter((node) => visibleNodeIds.has(node.id))
       .map((node) => {
@@ -564,6 +568,7 @@ function OrgChart() {
         childrenCount: getDescendantCount(node.id, tree),
         onToggleCollapse: () => {
           void handleToggleCollapse(node.id, isDepthLimited);
+          setPendingCenterId(node.id);
         },
         onClick: () => {
           setSelectedUserId(node.id);
