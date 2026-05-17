@@ -125,8 +125,8 @@ export function buildLicensingColumns(
     {
       key: 'index',
       label: '#',
-      width: 40,
-      minWidth: 40,
+      width: 50,
+      minWidth: 50,
       resizable: false,
       className: 'tracker-col-narrow',
       align: 'center',
@@ -203,7 +203,7 @@ export function buildLicensingColumns(
       width: 120,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => asYesNo(row.is_xcel),
       render: (row) => renderCheckbox(row, 'is_xcel', options),
     },
@@ -213,7 +213,7 @@ export function buildLicensingColumns(
       width: 160,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => row.test_date || '',
       render: (row) => (
         <DatePicker
@@ -230,7 +230,7 @@ export function buildLicensingColumns(
       width: 260,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => `${row.test_result ? 'Pass' : ''} ${row.test_result_date || ''}`.trim(),
       render: (row) => (
         <div className="flex w-full flex-row gap-1">
@@ -263,7 +263,7 @@ export function buildLicensingColumns(
       width: 140,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => asYesNo(row.is_fingerprint_done),
       render: (row) => renderCheckbox(row, 'is_fingerprint_done', options),
     },
@@ -273,7 +273,7 @@ export function buildLicensingColumns(
       width: 170,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => row.sircon_nipr_date || '',
       render: (row) => (
         <DatePicker
@@ -290,7 +290,7 @@ export function buildLicensingColumns(
       width: 160,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => asYesNo(row.is_license_cert_done),
       render: (row) => renderCheckbox(row, 'is_license_cert_done', options),
     },
@@ -300,7 +300,7 @@ export function buildLicensingColumns(
       width: 160,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => asYesNo(row.is_launch_direct_done),
       render: (row) => renderCheckbox(row, 'is_launch_direct_done', options),
     },
@@ -310,7 +310,7 @@ export function buildLicensingColumns(
       width: 160,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => asYesNo(row.is_agent_agreement_done),
       render: (row) => renderCheckbox(row, 'is_agent_agreement_done', options),
     },
@@ -320,7 +320,7 @@ export function buildLicensingColumns(
       width: 170,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => row.agent_approval_date || '',
       render: (row) => (
         <DatePicker
@@ -337,7 +337,7 @@ export function buildLicensingColumns(
       width: 160,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => asYesNo(row.is_continuing_education_done),
       render: (row) => renderCheckbox(row, 'is_continuing_education_done', options),
     },
@@ -347,7 +347,7 @@ export function buildLicensingColumns(
       width: 160,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => asYesNo(row.is_eop_platform_done),
       render: (row) => renderCheckbox(row, 'is_eop_platform_done', options),
     },
@@ -357,7 +357,7 @@ export function buildLicensingColumns(
       width: 160,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => asYesNo(row.is_direct_deposit_done),
       render: (row) => renderCheckbox(row, 'is_direct_deposit_done', options),
     },
@@ -367,7 +367,7 @@ export function buildLicensingColumns(
       width: 140,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => asYesNo(row.is_licensed),
       render: (row) => (
         <span className={`text-xs font-semibold ${row.is_licensed ? 'text-emerald-400' : 'text-white/40'}`}>
@@ -379,7 +379,7 @@ export function buildLicensingColumns(
       key: 'notes',
       label: 'Notes',
       width: 320,
-      searchable: true,
+      searchable: false,
       value: (row) => getRowNotes(row, options.notesByUserId).map((note) => note.text).join(' '),
       render: (row) => (
         <TrackerNotesCell

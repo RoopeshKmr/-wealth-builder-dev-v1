@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { IconInfoCircle } from '@tabler/icons-react';
-import { ErrorState, LoadingState, TrackerDateRangeFilter, type DatePresetKey, type TrackerDateRangeChange, TrackerTable } from '@/shared/components';
+import { ErrorState, LoadingState, Modal, TrackerDateRangeFilter, type DatePresetKey, type TrackerDateRangeChange, TrackerTable } from '@/shared/components';
 import { TrackerNotesModal } from '@/features/team/components/tracker-notes-modal';
 import type { TrackerNote } from '@/features/team/services/tracker-notes-service';
 import { createTrackerNote, fetchTrackerNotesForUser } from '@/features/team/services/tracker-notes-service';
@@ -163,13 +163,23 @@ function KpiCard({
   label,
   value,
   info,
+  onClick,
 }: {
   label: string;
   value: string;
   info: string;
+  onClick?: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-[#6d5930] bg-[linear-gradient(135deg,rgba(64,49,16,0.9),rgba(43,32,9,0.92))] px-3 py-4 text-center shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]">
+    <div
+      className={`rounded-xl border border-[#6d5930] bg-[linear-gradient(135deg,rgba(64,49,16,0.9),rgba(43,32,9,0.92))] px-3 py-4 text-center shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] ${
+        onClick ? 'cursor-pointer transition-opacity hover:opacity-80' : ''
+      }`}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); } : undefined}
+    >
       <div className="flex items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#f7f0d3]">
         <span>{label}</span>
         <span title={info} className="cursor-help text-[#ddc67a]">
@@ -178,6 +188,42 @@ function KpiCard({
       </div>
       <div className="mt-2 text-lg font-extrabold text-white">{value}</div>
     </div>
+  );
+}
+
+function TopProducersModal({
+  open,
+  performers,
+  onClose,
+}: {
+  open: boolean;
+  performers: ProductionTopPerformer[];
+  onClose: () => void;
+}) {
+  const top10 = performers.slice(0, 10);
+  return (
+    <Modal
+      open={open}
+      title="🏆 Top Producers"
+      onClose={onClose}
+      contentClassName="max-w-[480px]"
+    >
+      {top10.length === 0 ? (
+        <p className="py-4 text-center text-sm text-white/50">No data available.</p>
+      ) : (
+        <ol className="space-y-2">
+          {top10.map((p, i) => (
+            <li
+              key={p.user_id}
+              className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/5 px-4 py-2"
+            >
+              <span className="w-6 text-center text-xs font-bold text-[#f4c95d]">{i + 1}</span>
+              <span className="flex-1 truncate text-sm font-semibold text-white">{p.user_name}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </Modal>
   );
 }
 
@@ -210,8 +256,8 @@ export default function ProductionTrackerPage() {
   const [topPerformers, setTopPerformers] = useState<ProductionTopPerformer[]>([]);
   const [companyProducts, setCompanyProducts] = useState<ProductionCompanyProduct[]>([]);
   const [splitOptions, setSplitOptions] = useState<string[]>([]);
-  const sentinelRef = useRef<HTMLDivElement>(null);
-  const pageSize = 10;
+  const [topProducersOpen, setTopProducersOpen] = useState(false);
+  const pageSize = 15;
   const addToast = useToastStore((state) => state.addToast);
   const currentUserId = useMemo(() => getCurrentUserId(), []);
 
@@ -747,20 +793,10 @@ export default function ProductionTrackerPage() {
     void loadRows(1, true, sortState, filters);
   }, [loadRows, sortState, filters]);
 
-  useEffect(() => {
-    if (!sentinelRef.current) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading && rows.length > 0) {
-          void loadRows(nextPageNum, false, sortState, filters);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    observer.observe(sentinelRef.current);
-    return () => observer.disconnect();
+  const handleReachEnd = useCallback(() => {
+    if (hasMore && !loadingMore && !loading && rows.length > 0) {
+      void loadRows(nextPageNum, false, sortState, filters);
+    }
   }, [filters, hasMore, loadRows, loading, loadingMore, nextPageNum, rows.length, sortState]);
 
   if (loading) {
@@ -793,6 +829,11 @@ export default function ProductionTrackerPage() {
 
   return (
     <div className="flex h-screen flex-col gap-3 bg-[#111318] p-2 text-white">
+      <TopProducersModal
+        open={topProducersOpen}
+        performers={topPerformers}
+        onClose={() => setTopProducersOpen(false)}
+      />
       <div className="rounded-2xl border border-white/10 bg-[#1d2027] px-4 py-5 shadow-[0_20px_45px_rgba(0,0,0,0.28)]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -834,7 +875,7 @@ export default function ProductionTrackerPage() {
         <KpiCard label="Personal Projected Points" value={displayedKpis.personalProj} info="Your submitted points that are not fully issued yet." />
         <KpiCard label="Chargebacks" value={displayedKpis.chargebacks} info="Business that was declined, cancelled, or lapsed." />
         <KpiCard label="NPR" value={displayedKpis.npr} info="Net point ratio equals net issued points divided by gross submitted points." />
-        <KpiCard label="Top Producer" value={displayedKpis.topProducer} info="Highest net point producer in the current baseshop view." />
+        <KpiCard label="Top Producer" value={displayedKpis.topProducer} info="Highest net point producer in the current baseshop view." onClick={() => setTopProducersOpen(true)} />
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-[#3c3521] bg-[#171a20] p-2 shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
@@ -852,10 +893,11 @@ export default function ProductionTrackerPage() {
           serverFilters={filters}
           onServerFilterChange={setFilters}
           rowStyle={rowStyle}
+          onReachEnd={handleReachEnd}
         />
       </div>
 
-      <div ref={sentinelRef} className="flex-shrink-0">
+      <div className="flex-shrink-0">
         {loadingMore && (
           <div className="flex items-center justify-center py-3">
             <div className="text-sm text-white/60">Loading more production records...</div>

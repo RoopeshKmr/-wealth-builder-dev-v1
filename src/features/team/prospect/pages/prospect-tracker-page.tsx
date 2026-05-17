@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { roleToPlan } from '@/core/constants/roles';
 import { Plan } from '@/core/types';
 import {
@@ -237,14 +237,13 @@ export default function ProspectTrackerPage() {
   const [importLoading, setImportLoading] = useState(false);
   const [importingSelected, setImportingSelected] = useState(false);
   const [importContacts, setImportContacts] = useState<ImportedContact[]>([]);
-  const [pageSize] = useState(10);
+  const [pageSize] = useState(15);
   const [nextPageNum, setNextPageNum] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [sortState, setSortState] = useState<{ key: string; direction: SortDirection } | null>(null);
   const [filters, setFilters] = useState<Record<string, string>>({});
-  const sentinelRef = useRef<HTMLDivElement>(null);
   const addToast = useToastStore((state) => state.addToast);
 
   const resolvedPlan = useMemo(() => {
@@ -1463,21 +1462,11 @@ export default function ProspectTrackerPage() {
     void loadProspects(1, true, sortState, filters);
   }, [sortState, filters]);
 
-  useEffect(() => {
-    if (!sentinelRef.current) return;
-
-    const observer = new IntersectionObserver(
-      async (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading && prospects.length > 0) {
-          await loadProspects(nextPageNum, false, sortState, filters);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    observer.observe(sentinelRef.current);
-    return () => observer.disconnect();
-  }, [hasMore, loadingMore, loading, nextPageNum, prospects.length, sortState, filters]);
+  const handleReachEnd = useCallback(() => {
+    if (hasMore && !loadingMore && !loading && prospects.length > 0) {
+      void loadProspects(nextPageNum, false, sortState, filters);
+    }
+  }, [filters, hasMore, loading, loadingMore, nextPageNum, prospects.length, sortState]);
 
   if (loading) {
     return (
@@ -1541,10 +1530,11 @@ export default function ProspectTrackerPage() {
           onServerSortChange={setSortState}
           serverFilters={filters}
           onServerFilterChange={setFilters}
+          onReachEnd={handleReachEnd}
         />
       </div>
 
-      <div ref={sentinelRef} className="mt-4 flex-shrink-0">
+      <div className="mt-4 flex-shrink-0">
         {loadingMore && (
           <div className="flex items-center justify-center py-4">
             <div className="text-sm text-white/60">Loading more prospects...</div>

@@ -117,8 +117,8 @@ export function buildProspectColumns(
     {
       key: 'index',
       label: '#',
-      width: 40,
-      minWidth: 40,
+      width: 50,
+      minWidth: 50,
       resizable: false,
       className: 'tracker-col-narrow',
       align: 'center',
@@ -448,7 +448,7 @@ export function buildProspectColumns(
         const notes = getRowNotes(row, options.notesByProspectId);
         return notes.map((note) => note.text).join(' ');
       },
-      searchable: true,
+      searchable: false,
       searchPlaceholder: 'Search Notes',
     },
     {

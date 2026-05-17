@@ -491,11 +491,11 @@ export function buildProductionColumns(actions: ProductionColumnActions): Tracke
     {
       key: 'status',
       label: '',
-      width: 40,
-      minWidth: 40,
+      width: 50,
+      minWidth: 50,
       resizable: false,
       sortable: true,
-      searchable: true,
+      searchable: false,
       align: 'center',
       className: 'tracker-col-narrow',
       value: (row) => row.status,
@@ -540,7 +540,7 @@ export function buildProductionColumns(actions: ProductionColumnActions): Tracke
       label: 'DATE WRITTEN',
       width: 140,
       sortable: true,
-      searchable: true,
+      searchable: false,
       align: 'center',
       value: (row) => row.date_written || '',
       render: (row) => (
@@ -555,7 +555,7 @@ export function buildProductionColumns(actions: ProductionColumnActions): Tracke
       label: 'CLOSURE DATE',
       width: 140,
       sortable: true,
-      searchable: true,
+      searchable: false,
       align: 'center',
       value: (row) => row.closure_date || '',
       render: (row) => (
@@ -584,7 +584,7 @@ export function buildProductionColumns(actions: ProductionColumnActions): Tracke
       key: 'agents',
       label: 'AGENTS',
       width: 260,
-      searchable: true,
+      searchable: false,
       value: (row) => {
         const splitLabel = row.split_mode === 'split' ? `${row.agent_1_pct || 50}/${row.agent_2_pct || 50}` : '100/0';
         return `${row.agent_1_name || ''} ${row.agent_2_name || ''} ${splitLabel}`.trim();
@@ -595,7 +595,7 @@ export function buildProductionColumns(actions: ProductionColumnActions): Tracke
       key: 'points',
       label: 'POINTS / 40% / 60%',
       width: 240,
-      searchable: true,
+      searchable: false,
       value: (row) => {
         const total = toNumber(row.points_target);
         const forty = total * 0.4;
@@ -608,7 +608,7 @@ export function buildProductionColumns(actions: ProductionColumnActions): Tracke
       key: 'advances',
       label: 'ADVANCES (1st / 2nd)',
       width: 280,
-      searchable: true,
+      searchable: false,
       value: (row) => `${row.advance_first_date || ''} ${row.advance_second_date || ''}`.trim(),
       render: (row) => <AdvancesCell row={row} onPatch={actions.onPatch} />,
     },
@@ -616,7 +616,7 @@ export function buildProductionColumns(actions: ProductionColumnActions): Tracke
       key: 'policy',
       label: 'POLICY DETAILS',
       width: 360,
-      searchable: true,
+      searchable: false,
       value: (row) =>
         `${row.policy_company || ''} ${row.policy_product || ''} ${row.policy_other_product || ''} ${row.policy_number || ''}`,
       render: (row) => <PolicyCell row={row} />,
@@ -626,7 +626,7 @@ export function buildProductionColumns(actions: ProductionColumnActions): Tracke
       label: 'POLICY STATUS',
       width: 160,
       sortable: true,
-      searchable: true,
+      searchable: false,
       align: 'center',
       value: (row) => row.policy_status || '',
       render: (row) => (
@@ -652,7 +652,7 @@ export function buildProductionColumns(actions: ProductionColumnActions): Tracke
       label: 'DELIVERY STATUS',
       width: 180,
       sortable: true,
-      searchable: true,
+      searchable: false,
       align: 'center',
       value: (row) => row.delivery,
       render: (row) => {
@@ -677,7 +677,7 @@ export function buildProductionColumns(actions: ProductionColumnActions): Tracke
       key: 'notes',
       label: 'NOTES',
       width: 320,
-      searchable: true,
+      searchable: false,
       value: (row) => getRowNotes(row, actions.notesByUserId).map((note) => note.text).join(' '),
       render: (row) => {
         const notes = getRowNotes(row, actions.notesByUserId);
@@ -705,7 +705,7 @@ export function buildProductionColumns(actions: ProductionColumnActions): Tracke
       label: 'TRIAL APP',
       width: 120,
       sortable: true,
-      searchable: true,
+      searchable: false,
       align: 'center',
       value: (row) => toYesNo(row.trial_app),
       render: (row) => (
@@ -726,7 +726,7 @@ export function buildProductionColumns(actions: ProductionColumnActions): Tracke
       label: 'CHARGE BACK',
       width: 140,
       sortable: true,
-      searchable: true,
+      searchable: false,
       align: 'center',
       value: (row) => row.chargeback_info?.selection || 'None',
       render: (row) => <ChargebackCell row={row} onChargeback={actions.onChargeback} />,

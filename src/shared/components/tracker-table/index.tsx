@@ -53,6 +53,8 @@ interface TrackerTableProps<T> {
   onServerFilterChange?: (filters: Record<string, string>) => void;
   rowClassName?: (row: T, index: number) => string;
   rowStyle?: (row: T, index: number) => CSSProperties | undefined;
+  onReachEnd?: () => void;
+  reachEndOffset?: number;
 }
 
 function toSortableValue(value: unknown): string | number {
@@ -161,6 +163,8 @@ export function TrackerTable<T>({
   onServerFilterChange,
   rowClassName,
   rowStyle,
+  onReachEnd,
+  reachEndOffset = 96,
 }: TrackerTableProps<T>) {
   const useServerMode = Boolean(onServerSortChange || onServerFilterChange);
   const [sort, setSort] = useState<{ key: string; direction: SortDirection } | null>(
@@ -175,6 +179,8 @@ export function TrackerTable<T>({
   const [lockedColumns, setLockedColumns] = useState<Set<string>>(new Set());
   const resizeRef = useRef<{ columnKey: string; startX: number; startWidth: number } | null>(null);
   const isResizing = useRef(false);
+  const tableWrapRef = useRef<HTMLDivElement>(null);
+  const reachEndLockedRef = useRef(false);
 
   const defaultLockedColumns = useMemo(() => {
     const numInitiallyLocked = Math.max(stickyFirstNColumns, stickyFirstColumn ? 1 : 0);
@@ -214,9 +220,14 @@ export function TrackerTable<T>({
 
     columns.forEach((column) => {
       if (!getStickyColumns.has(column.key)) return;
-      
+
       offsets[column.key] = left;
-      const width = columnWidths[column.key] ?? widthToPixels(column.width, column.minWidth ?? 180);
+      // Use the same logic as getColumnWidth so non-resizable columns (e.g. the narrow # column)
+      // always contribute their configured width, even if stale localStorage data exists.
+      const width =
+        column.resizable === false
+          ? widthToPixels(column.width, column.minWidth ?? 180)
+          : (columnWidths[column.key] ?? widthToPixels(column.width, column.minWidth ?? 180));
       left += width;
     });
 
@@ -274,6 +285,11 @@ export function TrackerTable<T>({
     setSearchDraft(serverFilters);
     setSearchApplied(serverFilters);
   }, [serverFilters]);
+
+  useEffect(() => {
+    // Unlock bottom trigger whenever content size changes after loading more.
+    reachEndLockedRef.current = false;
+  }, [rows.length]);
 
   const handleSort = (column: TrackerTableColumn<T>) => {
     if (!column.sortable) return;
@@ -414,9 +430,27 @@ export function TrackerTable<T>({
     };
   }, [resizable, tableId]);
 
+  const handleWrapScroll = () => {
+    if (!onReachEnd) return;
+
+    const wrap = tableWrapRef.current;
+    if (!wrap) return;
+
+    const distanceToBottom = wrap.scrollHeight - (wrap.scrollTop + wrap.clientHeight);
+    if (distanceToBottom <= reachEndOffset) {
+      if (!reachEndLockedRef.current) {
+        reachEndLockedRef.current = true;
+        onReachEnd();
+      }
+      return;
+    }
+
+    reachEndLockedRef.current = false;
+  };
+
   return (
     <div className={`tracker-table-shell ${className}`}>
-      <div className="tracker-table-wrap">
+      <div ref={tableWrapRef} className="tracker-table-wrap" onScroll={handleWrapScroll}>
         <table className="tracker-table">
           <thead>
             {headerGroupRows.map((groupRow, rowIndex) => (

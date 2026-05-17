@@ -353,8 +353,8 @@ export function build4x4Columns(options: Build4x4ColumnsOptions): TrackerTableCo
     {
       key: 'index',
       label: '#',
-      width: 40,
-      minWidth: 40,
+      width: 50,
+      minWidth: 50,
       resizable: false,
       className: 'tracker-col-narrow',
       align: 'center',
@@ -431,7 +431,7 @@ export function build4x4Columns(options: Build4x4ColumnsOptions): TrackerTableCo
       width: 100,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => asYesNo(row.finish_1st_recruit),
       render: (row) => renderCheckbox(row, 'finish_1st_recruit', options),
     },
@@ -441,7 +441,7 @@ export function build4x4Columns(options: Build4x4ColumnsOptions): TrackerTableCo
       width: 140,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => `${asYesNo(row.finish_1st_savings)} ${row.savings_1st_amount ?? ''}`,
       render: (row) => (
         <SavingsAmountCell
@@ -458,7 +458,7 @@ export function build4x4Columns(options: Build4x4ColumnsOptions): TrackerTableCo
       width: 100,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => asYesNo(row.big_event_1st),
       render: (row) => renderCheckbox(row, 'big_event_1st', options),
     },
@@ -468,7 +468,7 @@ export function build4x4Columns(options: Build4x4ColumnsOptions): TrackerTableCo
       width: 120,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => asYesNo(row.finish_2nd_recruit),
       render: (row) => renderCheckbox(row, 'finish_2nd_recruit', options),
     },
@@ -478,7 +478,7 @@ export function build4x4Columns(options: Build4x4ColumnsOptions): TrackerTableCo
       width: 120,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => asYesNo(row.finish_3rd_recruit),
       render: (row) => renderCheckbox(row, 'finish_3rd_recruit', options),
     },
@@ -488,7 +488,7 @@ export function build4x4Columns(options: Build4x4ColumnsOptions): TrackerTableCo
       width: 150,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => `${asYesNo(row.finish_2nd_savings)} ${row.savings_2nd_amount ?? ''}`,
       render: (row) => (
         <SavingsAmountCell
@@ -505,7 +505,7 @@ export function build4x4Columns(options: Build4x4ColumnsOptions): TrackerTableCo
       width: 150,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => `${asYesNo(row.finish_3rd_savings)} ${row.savings_3rd_amount ?? ''}`,
       render: (row) => (
         <SavingsAmountCell
@@ -522,7 +522,7 @@ export function build4x4Columns(options: Build4x4ColumnsOptions): TrackerTableCo
       width: 150,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => `${asYesNo(row.finish_4th_savings)} ${row.savings_4th_amount ?? ''}`,
       render: (row) => (
         <SavingsAmountCell
@@ -539,7 +539,7 @@ export function build4x4Columns(options: Build4x4ColumnsOptions): TrackerTableCo
       width: 120,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => row.pass_exam_date || '',
       render: (row) => (
         <DatePicker
@@ -556,7 +556,7 @@ export function build4x4Columns(options: Build4x4ColumnsOptions): TrackerTableCo
       width: 120,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => row.sircon_nipr_date || '',
       render: (row) => (
         <DatePicker
@@ -573,7 +573,7 @@ export function build4x4Columns(options: Build4x4ColumnsOptions): TrackerTableCo
       width: 100,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => asYesNo(row.is_licensed),
       render: (row) => (
         <span className={`text-xs font-semibold ${row.is_licensed ? 'text-emerald-400' : 'text-white/40'}`}>
@@ -587,7 +587,7 @@ export function build4x4Columns(options: Build4x4ColumnsOptions): TrackerTableCo
       width: 120,
       align: 'center',
       sortable: true,
-      searchable: true,
+      searchable: false,
       value: (row) => asYesNo(Boolean(row['1_direct_recruit'])),
       render: (row) => renderCheckbox(row, '1_direct_recruit', options),
     },
@@ -595,7 +595,7 @@ export function build4x4Columns(options: Build4x4ColumnsOptions): TrackerTableCo
       key: 'notes',
       label: 'Notes',
       width: 320,
-      searchable: true,
+      searchable: false,
       value: (row) => getRowNotes(row, options.notesByUserId).map((note) => note.text).join(' '),
       render: (row) => (
         <TrackerNotesCell

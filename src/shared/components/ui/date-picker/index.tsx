@@ -1,6 +1,7 @@
 import DatePickerLib from 'react-datepicker';
 import { format } from 'date-fns';
 import { Calendar } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { cn } from '@core/utils';
 import 'react-datepicker/dist/react-datepicker.css';
 import './date-picker.css';
@@ -41,6 +42,12 @@ function toDateTimeString(value: Date | null) {
   return format(value, "yyyy-MM-dd'T'HH:mm");
 }
 
+function renderPopperInBody(props: { children?: React.ReactNode }) {
+  const { children } = props;
+  if (typeof document === 'undefined') return <>{children}</>;
+  return createPortal(children, document.body);
+}
+
 export interface DatePickerProps extends BaseDateProps {}
 
 export function DatePicker({
@@ -74,6 +81,7 @@ export function DatePicker({
         calendarClassName="date-picker-calendar"
         showPopperArrow={false}
         popperProps={{ strategy: 'fixed' }}
+        popperContainer={renderPopperInBody}
         disabled={disabled}
         required={required}
         autoFocus={autoFocus}
@@ -125,6 +133,7 @@ export function DateTimePicker({
         calendarClassName="date-picker-calendar"
         showPopperArrow={false}
         popperProps={{ strategy: 'fixed' }}
+        popperContainer={renderPopperInBody}
         disabled={disabled}
         required={required}
         autoFocus={autoFocus}
@@ -200,6 +209,7 @@ export function DateRangePicker({
         popperClassName="date-picker-popper"
         calendarClassName="date-picker-calendar"
         showPopperArrow={false}
+        popperContainer={renderPopperInBody}
         isClearable={Boolean(start || end)}
       />
       <span className="date-input-icon" aria-hidden>

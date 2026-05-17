@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Block, Button, ErrorState, LoadingState, TrackerDateRangeFilter, type DatePresetKey, type TrackerDateRangeChange, TrackerTable } from '@/shared/components';
 import { useToastStore } from '@/store';
 import { buildAssociateColumns } from '../associate-tracker-columns';
@@ -102,9 +102,8 @@ export default function AssociateTrackerPage() {
   const [teamScope, setTeamScope] = useState<TrackerTeamScope>('baseshop');
   const [teamScopeUserId, setTeamScopeUserId] = useState<string | null>(null);
   const [resettingAction, setResettingAction] = useState<'big-event' | 'training' | null>(null);
-  const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const pageSize = 10;
+  const pageSize = 15;
   const addToast = useToastStore((state) => state.addToast);
 
   const handleDateRangeChange = useCallback((value: TrackerDateRangeChange) => {
@@ -503,20 +502,10 @@ export default function AssociateTrackerPage() {
     void loadRows(1, true, sortState, filters);
   }, [loadRows, sortState, filters]);
 
-  useEffect(() => {
-    if (!sentinelRef.current) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading && rows.length > 0) {
-          void loadRows(nextPageNum, false, sortState, filters);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    observer.observe(sentinelRef.current);
-    return () => observer.disconnect();
+  const handleReachEnd = useCallback(() => {
+    if (hasMore && !loadingMore && !loading && rows.length > 0) {
+      void loadRows(nextPageNum, false, sortState, filters);
+    }
   }, [filters, hasMore, loadRows, loading, loadingMore, nextPageNum, rows.length, sortState]);
 
   const notesForOpenUser = useMemo(() => {
@@ -609,10 +598,11 @@ export default function AssociateTrackerPage() {
           onServerSortChange={setSortState}
           serverFilters={filters}
           onServerFilterChange={setFilters}
+          onReachEnd={handleReachEnd}
         />
       </div>
 
-      <div ref={sentinelRef} className="mt-4 flex-shrink-0">
+      <div className="mt-4 flex-shrink-0">
         {loadingMore && (
           <div className="flex items-center justify-center py-4">
             <div className="text-sm text-white/60">Loading more associate records...</div>
