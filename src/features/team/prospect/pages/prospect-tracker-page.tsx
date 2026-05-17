@@ -16,6 +16,7 @@ import {
   createProspect,
   deleteProspect,
   fetchProspects,
+  sendProspectInvitation,
   type Prospect,
   saveProspectCallLog,
   updateProspectDetails,
@@ -600,14 +601,23 @@ export default function ProspectTrackerPage() {
   };
 
   const handleInviteProspect = (row: Prospect) => {
-    if (!row.email) {
-      addToast({ type: 'warning', message: 'This prospect does not have an email address.' });
-      return;
-    }
-
-    const subject = encodeURIComponent('Invitation from Wealth Builders');
-    const body = encodeURIComponent(`Hi ${row.full_name || ''},\n\nI would like to invite you to connect.`);
-    window.location.href = `mailto:${row.email}?subject=${subject}&body=${body}`;
+    void (async () => {
+      try {
+        setSavingCallLog(true);
+        await sendProspectInvitation(row);
+        addToast({
+          type: 'success',
+          message: `Invitation sent to ${row.full_name || row.email}.`,
+        });
+      } catch (err) {
+        addToast({
+          type: 'error',
+          message: err instanceof Error ? err.message : 'Failed to send invitation.',
+        });
+      } finally {
+        setSavingCallLog(false);
+      }
+    })();
   };
 
   const handleSaveCallLog = async (outcome: string, note: string) => {

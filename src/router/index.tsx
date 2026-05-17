@@ -33,6 +33,7 @@ const TrainingCenterPage = lazy(() => import('@/features/training-center/pages/t
 const TrainingSchedulePage = lazy(() => import('@/features/training-schedule/pages/training-schedule-page'));
 const HelpNeededPage = lazy(() => import('@/features/helpdesk/pages/help-needed-page'));
 const AdminHelpdeskPage = lazy(() => import('@/features/helpdesk/pages/admin-helpdesk-page'));
+const InviteAgentsPage = lazy(() => import('@/features/admin/invite-agents/pages/invite-agents-page'));
 
 // Loading component
 function PageLoader() {
@@ -199,6 +200,10 @@ const router = createBrowserRouter([
       {
         path: 'team/production-tracker',
         element: lazyLoad(ProductionTrackerPage),
+      },
+      {
+        path: 'admin/invite-agents',
+        element: lazyLoad(InviteAgentsPage),
       },
       {
         path: 'reports',

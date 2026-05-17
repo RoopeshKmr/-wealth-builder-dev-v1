@@ -1,4 +1,5 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const FRONTEND_BASE_URL = import.meta.env.VITE_FRONTEND_BASE_URL || window.location.origin;
 
 export interface ProspectMeta {
   notes: string;
@@ -434,4 +435,50 @@ export async function createProspect(payload: CreateProspectPayload): Promise<Pr
   }
 
   return (await response.json()) as Prospect;
+}
+
+export interface InvitationResponse {
+  id: number;
+  token: string;
+  email: string;
+  to_name: string;
+  invited_by: number;
+  invited_by_name: string;
+  status: string;
+  public_url: string;
+  expires_at: string;
+  created_at: string;
+}
+
+export async function sendProspectInvitation(prospect: Prospect): Promise<InvitationResponse> {
+  const email = (prospect.email || '').trim();
+  if (!email) {
+    throw new Error('This prospect does not have an email address.');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/accounts/invitations/`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({
+      email,
+      to_name: (prospect.full_name || '').trim(),
+      public_url: `${FRONTEND_BASE_URL}/public-insight-center`,
+    }),
+  });
+
+  if (!response.ok) {
+    let message = `Failed to send invitation: ${response.statusText}`;
+    try {
+      const data = await response.json();
+      const fieldError = Object.values(data || {}).find((value) => Array.isArray(value)) as
+        | string[]
+        | undefined;
+      message = data?.detail || fieldError?.[0] || data?.message || message;
+    } catch {
+      // Keep fallback message.
+    }
+    throw new Error(message);
+  }
+
+  return (await response.json()) as InvitationResponse;
 }

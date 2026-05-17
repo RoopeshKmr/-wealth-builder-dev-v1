@@ -84,6 +84,7 @@ export function CallLogModal({
               <Button
                 type="button"
                 onClick={() => onInvite(prospect)}
+                disabled={saving}
                 variant="outline"
                 className="rounded-lg border-[#b59a0a] bg-[#3b3524] px-3 py-2 text-xs font-semibold tracking-wide text-[#ffdd45] hover:bg-[#4a422b]"
               >
