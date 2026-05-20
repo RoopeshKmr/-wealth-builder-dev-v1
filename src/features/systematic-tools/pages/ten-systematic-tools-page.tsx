@@ -3,9 +3,11 @@ import { useAuth } from '@/features/auth/hooks/use-auth';
 import { roleToPlan } from '@core/constants/roles';
 import { Plan } from '@core/types';
 import { Heading, Text } from '@/shared/components';
-import SecureSlidePlayer from '@/features/systematic-tools/components/secure-slide-player';
 import CustomFlyerModal from '@/features/systematic-tools/components/custom-flyer-modal';
 import BusinessShowerFlyerModal from '@/features/systematic-tools/components/business-shower-flyer-modal';
+import FullscreenViewer, {
+  isSlidesUrl,
+} from '@/features/systematic-tools/components/fullscreen-viewer';
 import '@/features/systematic-tools/components/ten-tools.css';
 
 type ToolOption = {
@@ -464,15 +466,6 @@ export default function TenSystematicToolsPage() {
   const [showFlyerModal, setShowFlyerModal] = useState(false);
   const [showBusinessShowerModal, setShowBusinessShowerModal] = useState(false);
 
-  const isSlidesUrl = (src: string) =>
-    typeof src === 'string' && (src.includes('/pubembed?') || src.includes('/embed?'));
-
-  const isPdfUrl = (src: string) =>
-    typeof src === 'string' &&
-    (src.includes('/preview') ||
-      src.includes('drive.google.com') ||
-      src.toLowerCase().includes('.pdf'));
-
   const openEmbed = (src: string, title: string) => {
     setPlayerSrc(src);
     setPlayerTitle(title || 'Viewer');
@@ -854,72 +847,12 @@ export default function TenSystematicToolsPage() {
         {renderRightView()}
       </main>
 
-      {isPlayerOpen && (
-        <div className="player-overlay" onClick={() => setIsPlayerOpen(false)}>
-          <div className="player-container" onClick={(e) => e.stopPropagation()}>
-            <button
-              className="player-close-btn"
-              onClick={() => setIsPlayerOpen(false)}
-            >
-              ✖ Close
-            </button>
-            <div className="player-title">{playerTitle}</div>
-            {isSlidesUrl(playerSrc) ? (
-              <SecureSlidePlayer embedSrc={playerSrc} />
-            ) : isPdfUrl(playerSrc) ? (
-              <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                <iframe
-                  src={playerSrc}
-                  title={playerTitle}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    border: 'none',
-                  }}
-                  allowFullScreen
-                />
-                {(playerSrc.includes('1oea9UDffzT3lX7NZqQMV3TWT7qvWSLY5') ||
-                  playerSrc.includes('pcGG2DMPzsxXGCCeRg1Tqteo9')) && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      right: 0,
-                      width: 80,
-                      height: 60,
-                      zIndex: 10,
-                      pointerEvents: 'auto',
-                      background: 'rgba(0, 0, 0, 0.85)',
-                    }}
-                  />
-                )}
-                {playerSrc.includes('Philosophies-%20updated-%207%20march.pdf') && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      height: 60,
-                      zIndex: 10,
-                      pointerEvents: 'auto',
-                      background: 'rgba(0, 0, 0, 0.85)',
-                    }}
-                  />
-                )}
-              </div>
-            ) : (
-              <video
-                title={playerTitle || 'Embedded content'}
-                src={playerSrc}
-                className="vault-embedded-video"
-                controls
-                playsInline
-              />
-            )}
-          </div>
-        </div>
-      )}
+      <FullscreenViewer
+        isOpen={isPlayerOpen}
+        src={playerSrc}
+        title={playerTitle}
+        onClose={() => setIsPlayerOpen(false)}
+      />
 
       <CustomFlyerModal
         isOpen={showFlyerModal}
