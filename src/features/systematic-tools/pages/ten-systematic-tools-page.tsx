@@ -144,19 +144,19 @@ export default function TenSystematicToolsPage() {
 
   const PDF_FILES = {
     fourFold:
-      'https://drive.google.com/file/d/1-GYpGxZpQm8xSdlQl8qfXLeK0bmq0-eb/preview',
+      'https://firebasestorage.googleapis.com/v0/b/wealthbuilders-crm-9c323.firebasestorage.app/o/10%20Systematic%20Tools%2F4fold%20ptintable.pdf?alt=media&token=f521b7dd-20c8-4c10-b535-ca2f69b0d739',
     reachMarketFaq:
       'https://firebasestorage.googleapis.com/v0/b/wealthbuilders-crm-9c323.firebasestorage.app/o/10%20Systematic%20Tools%2F3%20Ways%20to%20reach-updated.pdf.pdf?alt=media&token=94233500-1771-4665-8260-57a0c6903816',
     machine:
-      'https://drive.google.com/file/d/1WNhK2Crwt_zwE2DsBqyCZ_GDk8p_EfDI/preview',
+      'https://firebasestorage.googleapis.com/v0/b/wealthbuilders-crm-9c323.firebasestorage.app/o/10%20Systematic%20Tools%2FMachine.pdf?alt=media&token=866cf7cb-7583-472e-b09f-e96a5f700b0b',
     accountability:
-      'https://drive.google.com/file/d/1_V0uXOsHttT1DGNuMAQw_TfdLYQYm6WY/preview',
+      'https://firebasestorage.googleapis.com/v0/b/wealthbuilders-crm-9c323.firebasestorage.app/o/10%20Systematic%20Tools%2FACCOUNTABILITY.pdf?alt=media&token=7560a8af-4013-46ed-b31c-fd8ba708721e',
     trainerManual:
-      'https://drive.google.com/file/d/1oea9UDffzT3lX7NZqQMV3TWT7qvWSLY5/preview',
+      'https://firebasestorage.googleapis.com/v0/b/wealthbuilders-crm-9c323.firebasestorage.app/o/10%20Systematic%20Tools%2FUS%20TRAINER%20MANUAL%202026.pdf?alt=media&token=9f14966e-d808-45bd-a811-22d37bb972e2',
     businessShowerBlueCards:
-      'https://drive.google.com/file/d/11HBseh37Hvjwj093LsuGnNRwM59_YnTn/preview',
+      'https://firebasestorage.googleapis.com/v0/b/wealthbuilders-crm-9c323.firebasestorage.app/o/10%20Systematic%20Tools%2FBUSINESS_SHOWER_FEEDBACK_CARD.pdf?alt=media&token=388c10cc-ced4-4e09-b280-47e579ff097a',
     newArtBlueCards:
-      'https://drive.google.com/file/d/1l6xx0z2k5vQ6Tm_-mPIcWc1-EmsoOBfN/preview',
+      'https://firebasestorage.googleapis.com/v0/b/wealthbuilders-crm-9c323.firebasestorage.app/o/10%20Systematic%20Tools%2FNEW_ART_FEEDBACK_CARD.pdf?alt=media&token=782a6951-e290-45fc-8825-f5fcc654733e',
     dropByPhilosophies:
       'https://firebasestorage.googleapis.com/v0/b/wealthbuilders-crm-9c323.firebasestorage.app/o/Philosophies-%20updated-%207%20march.pdf?alt=media&token=05d49767-0779-44ba-9d3a-67de820c8ce0',
   };

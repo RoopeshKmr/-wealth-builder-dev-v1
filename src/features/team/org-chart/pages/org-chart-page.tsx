@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Background,
   Controls,
@@ -181,6 +181,11 @@ function OrgChart() {
   const [apiChildrenMap, setApiChildrenMap] = useState<Record<string, string[]>>({});
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [pendingCenterId, setPendingCenterId] = useState<string | null>(null);
+  // Anchoring state: when the user toggles expand/collapse on a node, we remember
+  // its current screen position. After dagre re-runs, we shift every node by the
+  // delta so the toggled node stays visually pinned in place.
+  const previousPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+  const anchorNodeIdRef = useRef<string | null>(null);
   const [headerSearchValue, setHeaderSearchValue] = useState('');
   const [showHeaderAutocomplete, setShowHeaderAutocomplete] = useState(false);
   const [profileOpenFor, setProfileOpenFor] = useState<{
@@ -460,6 +465,9 @@ function OrgChart() {
   }, [activeFilters, getNodeFilterMatches]);
 
   const handleToggleCollapse = useCallback((nodeId: string, isDepthLimited: boolean) => {
+    // Anchor the toggled node so its on-screen position is preserved across
+    // the upcoming layout recompute.
+    anchorNodeIdRef.current = nodeId;
     const isCurrentlyCollapsed = collapsedNodes.has(nodeId) || isDepthLimited;
 
     if (isCurrentlyCollapsed) {
@@ -498,8 +506,19 @@ function OrgChart() {
     });
   }, [collapsedNodes]);
 
-  const { nodes, edges } = useMemo(() => {
-    if (!tree) return { nodes: [] as Node[], edges: [] as Edge[] };
+  // Stage 1: compute layout. Only depends on tree shape and collapse/depth state.
+  // Clicking a node (selectedUserId / filters) must NOT recompute this — otherwise
+  // dagre reruns and node references churn, causing visible "jumps".
+  const layout = useMemo(() => {
+    if (!tree) {
+      return {
+        rawNodes: [] as Node[],
+        rawEdges: [] as Edge[],
+        visibleNodeIds: new Set<string>(),
+        depthLimitedNodeIds: new Set<string>(),
+        depthMap: new Map<string, number>(),
+      };
+    }
 
     const depthMap = new Map<string, number>();
     const walkDepth = (node: TreeNode, depth = 0) => {
@@ -536,61 +555,99 @@ function OrgChart() {
 
     collectVisibleNodeIds(tree);
 
-    // Pass visibility info to layout function so dagre only layouts visible nodes
     const { nodes: rawNodes, edges: rawEdges } = layoutTree(tree, {
       focusNodeId: tree.id,
-      nodeWidth: 160,
-      nodeHeight: 190,
-      rankSep: 72,
-      nodeSep: 40,
+      nodeWidth: 170,
+      nodeHeight: 215,
+      rankSep: 140,
+      nodeSep: 60,
       collapsedNodeIds: collapsedNodes,
       depthLimitedNodeIds,
       visibleNodeIds,
     });
 
+    // Anchor shift: if the user just toggled a node, translate every node so the
+    // toggled node keeps the same on-screen position it had before the layout
+    // recompute. Siblings/subtrees redistribute around it instead of the whole
+    // chart drifting.
+    const anchorId = anchorNodeIdRef.current;
+    const previousPositions = previousPositionsRef.current;
+    let shiftedNodes = rawNodes;
+    if (anchorId) {
+      const previousPosition = previousPositions.get(anchorId);
+      const nextAnchorNode = rawNodes.find((node) => node.id === anchorId);
+      if (previousPosition && nextAnchorNode) {
+        const dx = previousPosition.x - nextAnchorNode.position.x;
+        const dy = previousPosition.y - nextAnchorNode.position.y;
+        if (dx !== 0 || dy !== 0) {
+          shiftedNodes = rawNodes.map((node) => ({
+            ...node,
+            position: { x: node.position.x + dx, y: node.position.y + dy },
+          }));
+        }
+      }
+      anchorNodeIdRef.current = null;
+    }
+
+    // Cache positions for the next toggle.
+    const nextPositions = new Map<string, { x: number; y: number }>();
+    shiftedNodes.forEach((node) => {
+      nextPositions.set(node.id, { x: node.position.x, y: node.position.y });
+    });
+    previousPositionsRef.current = nextPositions;
+
+    return { rawNodes: shiftedNodes, rawEdges, visibleNodeIds, depthLimitedNodeIds, depthMap };
+  }, [tree, collapsedNodes, expandedDepthOverrideNodes, expandDepth, hasChildren]);
+
+  // Stage 2: per-node enhancements (handlers, selection class, filter color).
+  // Reuses positions from stage 1, so clicks don't shift anything.
+  const { nodes, edges } = useMemo(() => {
+    const { rawNodes, rawEdges, visibleNodeIds, depthLimitedNodeIds, depthMap } = layout;
+    if (!rawNodes.length) return { nodes: [] as Node[], edges: [] as Edge[] };
+
     const enhancedNodes = rawNodes
       .filter((node) => visibleNodeIds.has(node.id))
       .map((node) => {
-      const currentData = node.data as OrgNodeData;
-      const depth = depthMap.get(node.id) || 0;
-      const hasChildrenNode = hasChildren(node.id);
-      const isDepthLimited =
-        expandDepth !== null
-        && depth >= expandDepth
-        && hasChildrenNode
-        && depthLimitedNodeIds.has(node.id);
+        const currentData = node.data as OrgNodeData;
+        const depth = depthMap.get(node.id) || 0;
+        const hasChildrenNode = hasChildren(node.id);
+        const isDepthLimited =
+          expandDepth !== null
+          && depth >= expandDepth
+          && hasChildrenNode
+          && depthLimitedNodeIds.has(node.id);
 
-      const updatedData: OrgNodeData = {
-        ...currentData,
-        filterBackground: getNodeFilterBackground(currentData),
-        isCollapsed: collapsedNodes.has(node.id) || isDepthLimited,
-        hasChildren: hasChildrenNode,
-        childrenCount: getDescendantCount(node.id, tree),
-        onToggleCollapse: () => {
-          void handleToggleCollapse(node.id, isDepthLimited);
-          setPendingCenterId(node.id);
-        },
-        onClick: () => {
-          setSelectedUserId(node.id);
-          focusOnNodeUtil(node.id, rawNodes, reactFlowInstance, 1.5);
-        },
-        onOpenProfile: () => {
-          const parsedId = Number.parseInt(node.id, 10);
-          if (!Number.isFinite(parsedId)) return;
-          setProfileOpenFor({
-            userId: parsedId,
-            userName: currentData.name || 'User Profile',
-            avatarUrl: currentData.profilePicture || currentData.photoURL || null,
-          });
-        },
-      };
+        const updatedData: OrgNodeData = {
+          ...currentData,
+          filterBackground: getNodeFilterBackground(currentData),
+          isCollapsed: collapsedNodes.has(node.id) || isDepthLimited,
+          hasChildren: hasChildrenNode,
+          childrenCount: getDescendantCount(node.id, tree),
+          onToggleCollapse: () => {
+            void handleToggleCollapse(node.id, isDepthLimited);
+            setPendingCenterId(node.id);
+          },
+          onClick: () => {
+            setSelectedUserId(node.id);
+            focusOnNodeUtil(node.id, rawNodes, reactFlowInstance, 1.5);
+          },
+          onOpenProfile: () => {
+            const parsedId = Number.parseInt(node.id, 10);
+            if (!Number.isFinite(parsedId)) return;
+            setProfileOpenFor({
+              userId: parsedId,
+              userName: currentData.name || 'User Profile',
+              avatarUrl: currentData.profilePicture || currentData.photoURL || null,
+            });
+          },
+        };
 
-      return {
-        ...node,
-        data: updatedData,
-        className: selectedUserId === node.id ? 'orgchart-node-selected' : undefined,
-      };
-    });
+        return {
+          ...node,
+          data: updatedData,
+          className: selectedUserId === node.id ? 'orgchart-node-selected' : undefined,
+        };
+      });
 
     const visibleIds = new Set(enhancedNodes.map((node) => node.id));
     return {
@@ -598,8 +655,8 @@ function OrgChart() {
       edges: rawEdges.filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target)),
     };
   }, [
+    layout,
     collapsedNodes,
-    expandedDepthOverrideNodes,
     expandDepth,
     getDescendantCount,
     getNodeFilterBackground,

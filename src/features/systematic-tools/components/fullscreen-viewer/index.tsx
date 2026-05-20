@@ -1,5 +1,6 @@
 import React from 'react';
 import SecureSlidePlayer from '@/features/systematic-tools/components/secure-slide-player';
+import PdfAnnotator from '@/features/systematic-tools/components/pdf-annotator';
 
 export const isSlidesUrl = (src: string) =>
   typeof src === 'string' && (src.includes('/pubembed?') || src.includes('/embed?'));
@@ -9,6 +10,16 @@ export const isPdfUrl = (src: string) =>
   (src.includes('/preview') ||
     src.includes('drive.google.com') ||
     src.toLowerCase().includes('.pdf'));
+
+// True when the PDF can be fetched directly by pdf.js (CORS-friendly hosts
+// like Firebase Storage or any URL ending in .pdf). Google Drive /preview
+// URLs are NOT fetchable cross-origin — they only render inside an iframe —
+// so we fall back to the iframe path for those.
+export const isDirectPdfUrl = (src: string) => {
+  if (typeof src !== 'string') return false;
+  if (src.includes('drive.google.com')) return false;
+  return src.toLowerCase().includes('.pdf');
+};
 
 // Normalize a PDF source URL for embedding in an <iframe>.
 // - Google Drive: keep the /preview URL as-is. Rewriting to /uc?export=download
@@ -43,6 +54,7 @@ const FullscreenViewer: React.FC<FullscreenViewerProps> = ({
 
   const slides = isSlidesUrl(src);
   const pdf = isPdfUrl(src);
+  const directPdf = pdf && isDirectPdfUrl(src);
 
   return (
     <div
@@ -112,6 +124,8 @@ const FullscreenViewer: React.FC<FullscreenViewerProps> = ({
 
         {slides ? (
           <SecureSlidePlayer embedSrc={src} fillContainer />
+        ) : directPdf ? (
+          <PdfAnnotator src={src} />
         ) : pdf ? (
           <SecureSlidePlayer
             embedSrc={toEmbeddablePdfUrl(src)}

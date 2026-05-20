@@ -99,8 +99,8 @@ const OrgNode = memo(function OrgNode({ data, selected }: NodeProps) {
     .join(' ');
 
   const baseStyle: Record<string, string> = {
-    width: '160px',
-    height: '190px',
+    width: '170px',
+    height: '215px',
     border: '2px solid #d9dde6',
     borderRadius: '10px',
     background: '#ffffff',
@@ -164,8 +164,10 @@ const OrgNode = memo(function OrgNode({ data, selected }: NodeProps) {
       )}
 
       <div className="org-chart-node-name">{name}</div>
-      <div className="org-node-agencycode">{agencyCode}</div>
-      <div className="org-node-level">{level}</div>
+      <div className="org-node-agencycode">
+        {agencyCode}
+        {level ? ` (${level})` : ''}
+      </div>
 
       {levelCounts && levelCounts.length > 0 && (
         <div className="org-node-level-counts">
